@@ -55,3 +55,15 @@ private val WEATHER_CODES: Map<Int, WeatherCodeInfo> = mapOf(
 
 fun weatherCodeInfo(code: Int): WeatherCodeInfo =
     WEATHER_CODES[code] ?: WeatherCodeInfo("Unknown", R.drawable.ic_weather_question)
+
+data class AqiInfo(val category: String, val description: String)
+
+// US AQI breakpoints (0-500 scale): Good/Moderate/Unhealthy for Sensitive Groups/Unhealthy/Very Unhealthy/Hazardous.
+fun aqiInfo(aqi: Int): AqiInfo = when {
+    aqi <= 50 -> AqiInfo("Good", "Fine for outdoor activity today.")
+    aqi <= 100 -> AqiInfo("Moderate", "Acceptable air quality for most people.")
+    aqi <= 150 -> AqiInfo("Unhealthy for sensitive groups", "Sensitive groups should limit prolonged exertion.")
+    aqi <= 200 -> AqiInfo("Unhealthy", "Everyone may begin to experience health effects.")
+    aqi <= 300 -> AqiInfo("Very unhealthy", "Health alert — avoid outdoor exertion.")
+    else -> AqiInfo("Hazardous", "Health warning of emergency conditions.")
+}

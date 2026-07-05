@@ -5,6 +5,7 @@ import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -32,10 +33,18 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.annotation.DrawableRes
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathMeasure
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.fossisawesome.ventus.ui.theme.LocalAppColors
+import com.fossisawesome.ventus.ui.theme.LocalAppFontFamily
 
 // Convenience Text composable backed by BasicText — replaces material3 Text() throughout the app.
 @Composable
@@ -87,6 +96,24 @@ fun AppIcon(
 ) {
     Image(
         painter = rememberVectorPainter(imageVector),
+        contentDescription = contentDescription,
+        colorFilter = ColorFilter.tint(tint),
+        modifier = modifier,
+    )
+}
+
+// Renders a drawable vector resource with a colour tint — used for the app's custom
+// Phosphor-style icons (weather glyphs plus the UI chrome icons), sharing a call-site
+// shape with the ImageVector overload above.
+@Composable
+fun AppIcon(
+    @DrawableRes id: Int,
+    contentDescription: String?,
+    tint: Color,
+    modifier: Modifier = Modifier,
+) {
+    Image(
+        painter = painterResource(id),
         contentDescription = contentDescription,
         colorFilter = ColorFilter.tint(tint),
         modifier = modifier,
@@ -267,4 +294,126 @@ fun TextButton(
         contentAlignment = Alignment.Center,
         content = { content() },
     )
+}
+
+// Small bordered stat tile — feels-like/humidity/wind/UV/precip row on the main screen.
+@Composable
+fun StatChip(
+    @DrawableRes icon: Int,
+    value: String,
+    label: String,
+    modifier: Modifier = Modifier,
+) {
+    val colors = LocalAppColors.current
+    val font = LocalAppFontFamily.current
+    Column(
+        modifier = modifier
+            .defaultMinSize(minWidth = 84.dp)
+            .background(colors.surface, RoundedCornerShape(14.dp))
+            .border(1.dp, colors.border, RoundedCornerShape(14.dp))
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        AppIcon(icon, null, tint = colors.accent.copy(alpha = 0.75f), modifier = Modifier.size(16.dp))
+        Text(value, color = colors.text, fontFamily = font, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+        Text(
+            label.uppercase(),
+            color = colors.muted,
+            fontFamily = font,
+            fontSize = 10.5.sp,
+            letterSpacing = 0.4.sp,
+        )
+    }
+}
+
+// Bordered card wrapper — hourly/sun/air-quality/7-day sections on the main screen.
+@Composable
+fun SectionCard(
+    modifier: Modifier = Modifier,
+    label: String? = null,
+    contentPadding: PaddingValues = PaddingValues(16.dp),
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    val colors = LocalAppColors.current
+    val font = LocalAppFontFamily.current
+    Column(
+        modifier = modifier
+            .background(colors.surface, RoundedCornerShape(18.dp))
+            .border(1.dp, colors.border, RoundedCornerShape(18.dp))
+            .padding(contentPadding),
+    ) {
+        if (label != null) {
+            Text(
+                label.uppercase(),
+                color = colors.muted,
+                fontFamily = font,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 0.6.sp,
+            )
+            Spacer(Modifier.height(10.dp))
+        }
+        content()
+    }
+}
+
+// Shallow sunrise-to-sunset arc with an elapsed-daylight segment and a sun-position dot.
+// The elapsed segment and the dot are derived from the same PathMeasure length so they
+// can never drift apart the way independently-computed values would.
+@Composable
+fun SunArc(
+    sunriseEpochSeconds: Long,
+    sunsetEpochSeconds: Long,
+    modifier: Modifier = Modifier,
+) {
+    val colors = LocalAppColors.current
+    val nowEpochSeconds = remember { System.currentTimeMillis() / 1000 }
+    val t = if (sunsetEpochSeconds > sunriseEpochSeconds) {
+        ((nowEpochSeconds - sunriseEpochSeconds).toFloat() / (sunsetEpochSeconds - sunriseEpochSeconds)).coerceIn(0f, 1f)
+    } else 0f
+
+    Canvas(modifier = modifier) {
+        val margin = 4.dp.toPx()
+        val start = Offset(margin, size.height - margin)
+        val end = Offset(size.width - margin, size.height - margin)
+        val control = Offset(size.width / 2f, -size.height * 0.4f)
+
+        val path = Path().apply {
+            moveTo(start.x, start.y)
+            quadraticTo(control.x, control.y, end.x, end.y)
+        }
+        drawPath(path, color = colors.border, style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round))
+
+        val measure = PathMeasure().apply { setPath(path, false) }
+        val elapsedLength = measure.length * t
+        val elapsed = Path()
+        measure.getSegment(0f, elapsedLength, elapsed, true)
+        drawPath(elapsed, color = colors.accent, style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round))
+
+        val sunPosition = measure.getPosition(elapsedLength)
+        drawCircle(color = colors.text, radius = 6.dp.toPx(), center = sunPosition)
+    }
+}
+
+// Min-max range track — 7-day forecast row, filled segment scaled to the week's temp range.
+@Composable
+fun RangeBar(
+    leftFraction: Float,
+    widthFraction: Float,
+    modifier: Modifier = Modifier,
+) {
+    val colors = LocalAppColors.current
+    BoxWithConstraints(
+        modifier = modifier
+            .height(4.dp)
+            .background(colors.surface2, RoundedCornerShape(2.dp)),
+    ) {
+        Box(
+            modifier = Modifier
+                .offset(x = maxWidth * leftFraction)
+                .width(maxWidth * widthFraction)
+                .fillMaxHeight()
+                .background(colors.accent, RoundedCornerShape(2.dp)),
+        )
+    }
 }

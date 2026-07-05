@@ -1,6 +1,7 @@
 package com.fossisawesome.ventus.data.repository
 
 import com.fossisawesome.ventus.data.Units
+import com.fossisawesome.ventus.data.api.AirQualityApi
 import com.fossisawesome.ventus.data.api.WeatherApi
 import com.fossisawesome.ventus.data.api.mapForecastResponse
 import com.fossisawesome.ventus.data.model.WeatherSnapshot
@@ -11,6 +12,7 @@ import kotlinx.coroutines.flow.first
 
 class WeatherRepository(
     private val api: WeatherApi,
+    private val airQualityApi: AirQualityApi,
     private val prefs: AppPreferences,
 ) {
     private val gson = Gson()
@@ -18,7 +20,12 @@ class WeatherRepository(
     suspend fun refresh(lat: Double, lon: Double, locationName: String, units: Units): WeatherUiState {
         return try {
             val response = api.fetchForecast(lat, lon)
-            val snapshot = mapForecastResponse(locationName, units, response)
+            val aqi = try {
+                airQualityApi.fetchAqi(lat, lon)
+            } catch (_: Exception) {
+                null
+            }
+            val snapshot = mapForecastResponse(locationName, units, response, aqi)
             val now = System.currentTimeMillis()
             prefs.setCachedWeather(gson.toJson(snapshot), now)
             WeatherUiState.Success(snapshot)

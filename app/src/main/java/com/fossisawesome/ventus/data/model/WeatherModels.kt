@@ -34,6 +34,20 @@ data class DailyBlock(
     @SerializedName("weather_code") val weatherCode: List<Int>,
     @SerializedName("temperature_2m_max") val temperature2mMax: List<Double>,
     @SerializedName("temperature_2m_min") val temperature2mMin: List<Double>,
+    val sunrise: List<String>? = null,
+    val sunset: List<String>? = null,
+    @SerializedName("uv_index_max") val uvIndexMax: List<Double>? = null,
+    @SerializedName("precipitation_probability_max") val precipitationProbabilityMax: List<Int>? = null,
+)
+
+// ── Open-Meteo air quality response ─────────────────────────────────────────
+
+data class OpenMeteoAirQualityResponse(
+    val current: AirQualityCurrentBlock?,
+)
+
+data class AirQualityCurrentBlock(
+    @SerializedName("us_aqi") val usAqi: Int?,
 )
 
 // ── Open-Meteo geocoding response ───────────────────────────────────────────
@@ -65,6 +79,10 @@ data class WeatherSnapshot(
     val currentWeatherCode: Int,
     val hourly: List<HourlyPoint>,
     val daily: List<DailyPoint>,
+    val sunriseEpochSeconds: Long? = null,
+    val sunsetEpochSeconds: Long? = null,
+    val uvIndex: Double? = null,
+    val aqi: Int? = null,
 )
 
 data class HourlyPoint(
@@ -79,6 +97,7 @@ data class DailyPoint(
     val tempMaxC: Double,
     val tempMinC: Double,
     val weatherCode: Int,
+    val precipitationProbability: Int = 0,
 )
 
 sealed interface WeatherUiState {

@@ -1,6 +1,7 @@
 package com.fossisawesome.ventus
 
 import android.app.Application
+import com.fossisawesome.ventus.data.api.OpenMeteoAirQualityApi
 import com.fossisawesome.ventus.data.api.OpenMeteoGeocodingApi
 import com.fossisawesome.ventus.data.api.OpenMeteoWeatherApi
 import com.fossisawesome.ventus.data.location.FusedLocationSource
@@ -11,7 +12,8 @@ import com.fossisawesome.ventus.data.storage.AppPreferences
 class VentusApplication : Application() {
     val prefs by lazy { AppPreferences(this) }
     val weatherApi by lazy { OpenMeteoWeatherApi() }
+    val airQualityApi by lazy { OpenMeteoAirQualityApi() }
     val geocodingApi by lazy { OpenMeteoGeocodingApi() }
-    val weatherRepository by lazy { WeatherRepository(weatherApi, prefs) }
+    val weatherRepository by lazy { WeatherRepository(weatherApi, airQualityApi, prefs) }
     val locationSource by lazy { FusedLocationSource(this) }
 }

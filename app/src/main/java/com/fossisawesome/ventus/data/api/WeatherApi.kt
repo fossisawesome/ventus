@@ -34,7 +34,7 @@ class OpenMeteoWeatherApi(
                 .addQueryParameter("longitude", lon.toString())
                 .addQueryParameter("current", "temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m")
                 .addQueryParameter("hourly", "temperature_2m,precipitation_probability,weather_code")
-                .addQueryParameter("daily", "weather_code,temperature_2m_max,temperature_2m_min")
+                .addQueryParameter("daily", "weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset,uv_index_max,precipitation_probability_max")
                 .addQueryParameter("temperature_unit", "celsius")
                 .addQueryParameter("wind_speed_unit", "kmh")
                 .addQueryParameter("precipitation_unit", "mm")
@@ -56,7 +56,12 @@ internal fun isoLocalTimeToEpochSeconds(iso: String): Long =
     LocalDateTime.parse(iso, DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm"))
         .toEpochSecond(ZoneOffset.UTC)
 
-fun mapForecastResponse(locationName: String, units: Units, response: OpenMeteoForecastResponse): WeatherSnapshot {
+fun mapForecastResponse(
+    locationName: String,
+    units: Units,
+    response: OpenMeteoForecastResponse,
+    aqi: Int? = null,
+): WeatherSnapshot {
     val current = response.current ?: error("Forecast response missing current block")
     val hourly = response.hourly
     val daily = response.daily
@@ -79,6 +84,7 @@ fun mapForecastResponse(locationName: String, units: Units, response: OpenMeteoF
                 tempMaxC = daily.temperature2mMax[i],
                 tempMinC = daily.temperature2mMin[i],
                 weatherCode = daily.weatherCode[i],
+                precipitationProbability = daily.precipitationProbabilityMax?.getOrNull(i) ?: 0,
             )
         }
     } else emptyList()
@@ -93,5 +99,9 @@ fun mapForecastResponse(locationName: String, units: Units, response: OpenMeteoF
         currentWeatherCode = current.weatherCode,
         hourly = hourlyPoints,
         daily = dailyPoints,
+        sunriseEpochSeconds = daily?.sunrise?.getOrNull(0)?.let(::isoLocalTimeToEpochSeconds),
+        sunsetEpochSeconds = daily?.sunset?.getOrNull(0)?.let(::isoLocalTimeToEpochSeconds),
+        uvIndex = daily?.uvIndexMax?.getOrNull(0),
+        aqi = aqi,
     )
 }

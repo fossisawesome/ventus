@@ -6,9 +6,14 @@ A complete list of what Ventus can do (Android only).
 
 ## Weather & Location
 
-- Current conditions: temperature, feels-like, humidity, wind, weather icon/description
-- 24-hour hourly forecast strip (temp, precipitation chance, icon)
-- 7-day daily forecast list (low/high, icon)
+- Current conditions: temperature, feels-like, humidity, wind, UV index, precipitation chance,
+  weather icon/description, shown as scannable stat chips
+- 24-hour hourly forecast strip (temp, precipitation chance, icon), grouped in a card
+- 7-day daily forecast list (low/high, precipitation chance, min–max range bar, icon), grouped in a card
+- Sunrise/sunset card with a day-progress arc showing where the sun currently sits between the two
+- Air quality card (AQI + category, e.g. "Good"/"Moderate") for the current location
+- Tap the location name to open a search sheet (city search + "use current location") without
+  reflowing the rest of the screen
 - GPS auto-detected location on first launch
 - Manual city search as a fallback or override (no location permission required if only using search)
 - Auto unit system by locale (metric/imperial), with manual override in Settings
