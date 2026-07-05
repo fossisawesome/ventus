@@ -28,12 +28,16 @@ private class FakeDataStore : DataStore<Preferences> {
 }
 
 private class FakeWeatherApi(
-    private val response: OpenMeteoForecastResponse? = null,
+    private val name: String,
     private val shouldFail: Boolean = false,
 ) : WeatherApi {
-    override suspend fun fetchForecast(lat: Double, lon: Double): OpenMeteoForecastResponse {
+    var callCount = 0
+        private set
+
+    override suspend fun fetchForecast(locationName: String, units: Units, lat: Double, lon: Double, aqi: Int?): WeatherSnapshot {
+        callCount++
         if (shouldFail) error("network down")
-        return response ?: error("no fixture response configured")
+        return sampleSnapshot(locationName)
     }
 }
 
@@ -41,12 +45,16 @@ private class FakeAirQualityApi(private val aqi: Int? = null) : AirQualityApi {
     override suspend fun fetchAqi(lat: Double, lon: Double): Int? = aqi
 }
 
-private val sampleResponse = OpenMeteoForecastResponse(
-    latitude = 40.7128,
-    longitude = -74.0060,
-    current = CurrentBlock("2026-07-05T14:00", 22.5, 60, 23.0, 2, 12.3),
-    hourly = HourlyBlock(listOf("2026-07-05T14:00"), listOf(22.5), listOf(10), listOf(2)),
-    daily = DailyBlock(listOf("2026-07-05"), listOf(2), listOf(25.0), listOf(15.0)),
+private fun sampleSnapshot(name: String) = WeatherSnapshot(
+    locationName = name,
+    units = Units.METRIC,
+    currentTempC = 22.5,
+    currentApparentTempC = 23.0,
+    currentHumidity = 60,
+    currentWindKmh = 12.3,
+    currentWeatherCode = 2,
+    hourly = listOf(HourlyPoint(epochSeconds = 0L, tempC = 22.5, precipitationProbability = 10, weatherCode = 2)),
+    daily = listOf(DailyPoint(epochSeconds = 0L, tempMaxC = 25.0, tempMinC = 15.0, weatherCode = 2)),
 )
 
 class WeatherRepositoryTest {
@@ -54,7 +62,7 @@ class WeatherRepositoryTest {
     @Test
     fun `refresh returns Success and caches on API success`() = runBlocking {
         val prefs = AppPreferences(FakeDataStore())
-        val repo = WeatherRepository(FakeWeatherApi(response = sampleResponse), FakeAirQualityApi(), prefs)
+        val repo = WeatherRepository(FakeWeatherApi("open-meteo"), FakeWeatherApi("nws"), FakeAirQualityApi(), prefs)
 
         val state = repo.refresh(40.7128, -74.0060, "New York", Units.METRIC)
 
@@ -63,7 +71,6 @@ class WeatherRepositoryTest {
         assertEquals("New York", snapshot.locationName)
         assertEquals(22.5, snapshot.currentTempC, 0.001)
 
-        // Cache was written.
         val cachedJson = prefs.cachedWeatherJson.firstOrNull()
         assertTrue(cachedJson != null && cachedJson.contains("New York"))
     }
@@ -71,10 +78,9 @@ class WeatherRepositoryTest {
     @Test
     fun `refresh falls back to cache as Stale on API failure`() = runBlocking {
         val prefs = AppPreferences(FakeDataStore())
-        val cachedSnapshot = mapForecastResponseForTest("Cached City")
-        prefs.setCachedWeather(Gson().toJson(cachedSnapshot), fetchedAt = 1000L)
+        prefs.setCachedWeather(Gson().toJson(sampleSnapshot("Cached City")), fetchedAt = 1000L)
 
-        val repo = WeatherRepository(FakeWeatherApi(shouldFail = true), FakeAirQualityApi(), prefs)
+        val repo = WeatherRepository(FakeWeatherApi("open-meteo", shouldFail = true), FakeWeatherApi("nws"), FakeAirQualityApi(), prefs)
         val state = repo.refresh(0.0, 0.0, "New Location", Units.METRIC)
 
         assertTrue(state is WeatherUiState.Stale)
@@ -86,7 +92,7 @@ class WeatherRepositoryTest {
     @Test
     fun `refresh returns Error on API failure with no cache`() = runBlocking {
         val prefs = AppPreferences(FakeDataStore())
-        val repo = WeatherRepository(FakeWeatherApi(shouldFail = true), FakeAirQualityApi(), prefs)
+        val repo = WeatherRepository(FakeWeatherApi("open-meteo", shouldFail = true), FakeWeatherApi("nws"), FakeAirQualityApi(), prefs)
 
         val state = repo.refresh(0.0, 0.0, "Nowhere", Units.METRIC)
 
@@ -96,10 +102,9 @@ class WeatherRepositoryTest {
     @Test
     fun `loadCached returns Stale when a cache entry exists`() = runBlocking {
         val prefs = AppPreferences(FakeDataStore())
-        val cachedSnapshot = mapForecastResponseForTest("Cached City")
-        prefs.setCachedWeather(Gson().toJson(cachedSnapshot), fetchedAt = 2000L)
+        prefs.setCachedWeather(Gson().toJson(sampleSnapshot("Cached City")), fetchedAt = 2000L)
 
-        val repo = WeatherRepository(FakeWeatherApi(), FakeAirQualityApi(), prefs)
+        val repo = WeatherRepository(FakeWeatherApi("open-meteo"), FakeWeatherApi("nws"), FakeAirQualityApi(), prefs)
         val state = repo.loadCached()
 
         assertTrue(state is WeatherUiState.Stale)
@@ -109,13 +114,39 @@ class WeatherRepositoryTest {
     @Test
     fun `loadCached returns NeedsLocation when no cache exists`() = runBlocking {
         val prefs = AppPreferences(FakeDataStore())
-        val repo = WeatherRepository(FakeWeatherApi(), FakeAirQualityApi(), prefs)
+        val repo = WeatherRepository(FakeWeatherApi("open-meteo"), FakeWeatherApi("nws"), FakeAirQualityApi(), prefs)
 
         val state = repo.loadCached()
 
         assertTrue(state is WeatherUiState.NeedsLocation)
     }
-}
 
-private fun mapForecastResponseForTest(name: String) =
-    com.fossisawesome.ventus.data.api.mapForecastResponse(name, Units.METRIC, sampleResponse)
+    @Test
+    fun `refresh uses NWS api when provider is nws and location is in the US`() = runBlocking {
+        val prefs = AppPreferences(FakeDataStore())
+        prefs.setWeatherProvider("nws")
+        val openMeteo = FakeWeatherApi("open-meteo")
+        val nws = FakeWeatherApi("nws")
+        val repo = WeatherRepository(openMeteo, nws, FakeAirQualityApi(), prefs)
+
+        repo.refresh(40.7128, -74.0060, "New York", Units.METRIC) // US coordinates
+
+        assertEquals(0, openMeteo.callCount)
+        assertEquals(1, nws.callCount)
+    }
+
+    @Test
+    fun `refresh falls back to open-meteo and resets preference when nws selected outside the US`() = runBlocking {
+        val prefs = AppPreferences(FakeDataStore())
+        prefs.setWeatherProvider("nws")
+        val openMeteo = FakeWeatherApi("open-meteo")
+        val nws = FakeWeatherApi("nws")
+        val repo = WeatherRepository(openMeteo, nws, FakeAirQualityApi(), prefs)
+
+        repo.refresh(51.5072, -0.1276, "London", Units.METRIC) // non-US coordinates
+
+        assertEquals(1, openMeteo.callCount)
+        assertEquals(0, nws.callCount)
+        assertEquals("open-meteo", prefs.weatherProvider.firstOrNull())
+    }
+}
