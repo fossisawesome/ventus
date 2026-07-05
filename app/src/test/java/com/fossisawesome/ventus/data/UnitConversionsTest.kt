@@ -1,5 +1,6 @@
 package com.fossisawesome.ventus.data
 
+import com.fossisawesome.ventus.R
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -45,14 +46,19 @@ class UnitConversionsTest {
 
     @Test
     fun `known weather codes map to description and icon`() {
-        assertEquals(WeatherCodeInfo("Clear sky", "☀️"), weatherCodeInfo(0))
-        assertEquals(WeatherCodeInfo("Thunderstorm", "⛈️"), weatherCodeInfo(95))
+        assertEquals(WeatherCodeInfo("Clear sky", R.drawable.ic_weather_sun), weatherCodeInfo(0))
+        assertEquals(WeatherCodeInfo("Thunderstorm", R.drawable.ic_weather_cloud_lightning), weatherCodeInfo(95))
+    }
+
+    @Test
+    fun `partly cloudy maps to cloud sun icon`() {
+        assertEquals(R.drawable.ic_weather_cloud_sun, weatherCodeInfo(2).icon)
     }
 
     @Test
     fun `unknown weather code falls back to a generic description`() {
         val info = weatherCodeInfo(999)
         assertEquals("Unknown", info.description)
-        assertEquals("❓", info.icon)
+        assertEquals(R.drawable.ic_weather_question, info.icon)
     }
 }
