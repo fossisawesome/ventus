@@ -5,9 +5,8 @@ import android.net.Uri
 import androidx.compose.ui.graphics.Color
 import java.io.File
 
-// Imported themes live as one .toml per theme under filesDir/themes/. The format
-// matches the desktop/Firmium theme files (name, color_scheme, [colors] table), so a
-// file authored for either app imports unchanged here.
+// Imported themes live as one .toml per theme under filesDir/themes/. Format:
+// name, color_scheme, [colors] table.
 
 private const val THEMES_DIR = "themes"
 private const val MAX_THEME_BYTES = 50 * 1024

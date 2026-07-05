@@ -60,10 +60,9 @@ on custom primitives in `ui/components/` layered over plain Compose Foundation, 
   preference — conversion for display happens only in the UI layer
   (`data/UnitConversions.kt`). Don't have the API layer request Fahrenheit/mph directly; that
   causes double conversion once the UI converts on top.
-- The theme system (colors, `.toml` import format) is shared with
-  [Firmium](https://github.com/fossisawesome/firmium) — a theme file authored for either app
-  should import unchanged into the other. If you change the `.toml` parsing logic, check it
-  against Firmium's theme files too.
+- The theme system (colors, `.toml` import format) has stable keys (`name`, `color_scheme`,
+  `[colors]` table) — existing theme files depend on them, so don't change the parsing logic
+  without a clear reason.
 
 ### Testing
 

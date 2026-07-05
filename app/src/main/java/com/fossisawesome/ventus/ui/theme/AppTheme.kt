@@ -35,7 +35,7 @@ internal fun hex(s: String): Color {
     return Color(argb)
 }
 
-// 18 themes ported verbatim from Firmium, plus the new "Ventus" flagship theme.
+// 19 built-in themes, "Ventus" is the flagship default.
 val ALL_THEMES: List<AppTheme> = listOf(
     AppTheme("ventus", "Ventus", true,
         bg = hex("0d1420"), surface = hex("16202e"), surface2 = hex("1f2c3d"),

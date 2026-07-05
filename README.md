@@ -3,10 +3,9 @@
 A native Kotlin/Jetpack Compose weather app for Android. Current conditions, hourly and 7-day
 forecast, powered by [Open-Meteo](https://open-meteo.com/) (no API key required).
 
-Ventus follows the same custom, non-Material3 theming system as its sibling project,
-[Firmium](https://github.com/fossisawesome/firmium): a small set of color tokens, 19 built-in
-themes (18 shared with Firmium, plus a Ventus-specific default), user-importable `.toml` themes,
-and a shared font picker — all via `CompositionLocal`, with no `MaterialTheme` anywhere in the app.
+Ventus uses a custom, non-Material3 theming system: a small set of color tokens, 19 built-in
+themes, user-importable `.toml` themes, and a font picker — all via `CompositionLocal`, with no
+`MaterialTheme` anywhere in the app.
 
 ## Features
 
@@ -14,7 +13,7 @@ and a shared font picker — all via `CompositionLocal`, with no `MaterialTheme`
 - GPS auto-detected location, with manual city search as a fallback or override
 - Auto units by locale (metric/imperial), with a manual override in Settings
 - Pull-to-refresh, with the last successful forecast cached for offline viewing
-- 19 built-in themes + `.toml` theme import (cross-compatible with Firmium's theme files)
+- 19 built-in themes + `.toml` theme import
 - User-selectable font (Inter, monospace variants, system fonts, etc.)
 
 ## Requirements
