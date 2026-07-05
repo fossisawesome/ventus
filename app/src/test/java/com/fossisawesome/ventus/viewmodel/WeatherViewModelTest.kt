@@ -3,6 +3,7 @@ package com.fossisawesome.ventus.viewmodel
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.emptyPreferences
+import com.fossisawesome.ventus.data.Units
 import com.fossisawesome.ventus.data.api.AirQualityApi
 import com.fossisawesome.ventus.data.api.GeocodingApi
 import com.fossisawesome.ventus.data.api.WeatherApi
@@ -35,15 +36,21 @@ private class FakeDataStore : DataStore<Preferences> {
     }
 }
 
-private val sampleResponse = OpenMeteoForecastResponse(
-    latitude = 40.7128, longitude = -74.0060,
-    current = CurrentBlock("2026-07-05T14:00", 22.5, 60, 23.0, 2, 12.3),
-    hourly = HourlyBlock(listOf("2026-07-05T14:00"), listOf(22.5), listOf(10), listOf(2)),
-    daily = DailyBlock(listOf("2026-07-05"), listOf(2), listOf(25.0), listOf(15.0)),
+private fun sampleSnapshot(name: String) = WeatherSnapshot(
+    locationName = name,
+    units = Units.METRIC,
+    currentTempC = 22.5,
+    currentApparentTempC = 23.0,
+    currentHumidity = 60,
+    currentWindKmh = 12.3,
+    currentWeatherCode = 2,
+    hourly = listOf(HourlyPoint(epochSeconds = 0L, tempC = 22.5, precipitationProbability = 10, weatherCode = 2)),
+    daily = listOf(DailyPoint(epochSeconds = 0L, tempMaxC = 25.0, tempMinC = 15.0, weatherCode = 2)),
 )
 
 private class FakeWeatherApi : WeatherApi {
-    override suspend fun fetchForecast(lat: Double, lon: Double) = sampleResponse
+    override suspend fun fetchForecast(locationName: String, units: Units, lat: Double, lon: Double, aqi: Int?) =
+        sampleSnapshot(locationName)
 }
 
 private class FakeAirQualityApi : AirQualityApi {
@@ -72,7 +79,7 @@ class WeatherViewModelTest {
     @Test
     fun `loadInitial with granted GPS fetches weather and reaches Success`() = runTest {
         val prefs = AppPreferences(FakeDataStore())
-        val repo = WeatherRepository(FakeWeatherApi(), FakeAirQualityApi(), prefs)
+        val repo = WeatherRepository(FakeWeatherApi(), FakeWeatherApi(), FakeAirQualityApi(), prefs)
         val vm = WeatherViewModel(
             repository = repo,
             locationSource = FakeLocationSource(LocationResult.Success(40.7128, -74.0060)),
@@ -90,7 +97,7 @@ class WeatherViewModelTest {
     @Test
     fun `loadInitial with denied permission and no cache reaches NeedsLocation`() = runTest {
         val prefs = AppPreferences(FakeDataStore())
-        val repo = WeatherRepository(FakeWeatherApi(), FakeAirQualityApi(), prefs)
+        val repo = WeatherRepository(FakeWeatherApi(), FakeWeatherApi(), FakeAirQualityApi(), prefs)
         val vm = WeatherViewModel(
             repository = repo,
             locationSource = FakeLocationSource(LocationResult.PermissionDenied),
@@ -108,7 +115,7 @@ class WeatherViewModelTest {
     @Test
     fun `selectLocation saves location and fetches weather`() = runTest {
         val prefs = AppPreferences(FakeDataStore())
-        val repo = WeatherRepository(FakeWeatherApi(), FakeAirQualityApi(), prefs)
+        val repo = WeatherRepository(FakeWeatherApi(), FakeWeatherApi(), FakeAirQualityApi(), prefs)
         val vm = WeatherViewModel(
             repository = repo,
             locationSource = FakeLocationSource(LocationResult.PermissionDenied),
@@ -127,7 +134,7 @@ class WeatherViewModelTest {
     @Test
     fun `search populates searchResults from geocoding api`() = runTest {
         val prefs = AppPreferences(FakeDataStore())
-        val repo = WeatherRepository(FakeWeatherApi(), FakeAirQualityApi(), prefs)
+        val repo = WeatherRepository(FakeWeatherApi(), FakeWeatherApi(), FakeAirQualityApi(), prefs)
         val fakeResults = listOf(GeocodingResult(1, "London", 51.5, -0.12, "UK", null))
         val vm = WeatherViewModel(
             repository = repo,
