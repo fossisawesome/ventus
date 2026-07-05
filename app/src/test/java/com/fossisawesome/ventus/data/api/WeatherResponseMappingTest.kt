@@ -41,7 +41,7 @@ class WeatherResponseMappingTest {
         assertEquals("New York", snapshot.locationName)
         assertEquals(Units.METRIC, snapshot.units)
         assertEquals(22.5, snapshot.currentTempC, 0.001)
-        assertEquals(23.0, snapshot.currentApparentTempC, 0.001)
+        assertEquals(23.0, snapshot.currentApparentTempC!!, 0.001)
         assertEquals(60, snapshot.currentHumidity)
         assertEquals(12.3, snapshot.currentWindKmh, 0.001)
         assertEquals(2, snapshot.currentWeatherCode)
@@ -68,5 +68,22 @@ class WeatherResponseMappingTest {
     @Test(expected = IllegalStateException::class)
     fun `throws when current block is missing`() {
         mapForecastResponse("New York", Units.METRIC, sampleResponse.copy(current = null))
+    }
+
+    @Test
+    fun `snapshot allows null apparent temp and humidity`() {
+        val snapshot = com.fossisawesome.ventus.data.model.WeatherSnapshot(
+            locationName = "Test",
+            units = Units.METRIC,
+            currentTempC = 20.0,
+            currentApparentTempC = null,
+            currentHumidity = null,
+            currentWindKmh = 10.0,
+            currentWeatherCode = 0,
+            hourly = emptyList(),
+            daily = emptyList(),
+        )
+        assertEquals(null, snapshot.currentApparentTempC)
+        assertEquals(null, snapshot.currentHumidity)
     }
 }

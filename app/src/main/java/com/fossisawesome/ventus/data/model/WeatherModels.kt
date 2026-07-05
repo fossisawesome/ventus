@@ -65,6 +65,37 @@ data class GeocodingResult(
     val admin1: String?,
 )
 
+// ── NWS (api.weather.gov) forecast response (raw Gson shape) ───────────────
+// NWS is a 3-call flow: /points/{lat},{lon} returns forecast/forecastHourly URLs, which are then
+// fetched separately. Both return the same periods-list shape under `properties`.
+
+data class NwsPointsResponse(val properties: NwsPointsProperties?)
+
+data class NwsPointsProperties(
+    val forecast: String?,
+    val forecastHourly: String?,
+)
+
+data class NwsForecastResponse(val properties: NwsForecastProperties?)
+
+data class NwsForecastProperties(val periods: List<NwsPeriod>?)
+
+data class NwsPeriod(
+    val number: Int,
+    val name: String?,
+    val startTime: String,
+    val endTime: String,
+    val isDaytime: Boolean,
+    val temperature: Double,
+    val temperatureUnit: String?,
+    val windSpeed: String?,
+    val shortForecast: String?,
+    val icon: String?,
+    val probabilityOfPrecipitation: NwsProbabilityOfPrecipitation? = null,
+)
+
+data class NwsProbabilityOfPrecipitation(val value: Int?)
+
 // ── Domain model used by the repository, viewmodel, and UI ─────────────────
 // All temperature/wind/precipitation fields are stored in SI units (Celsius, km/h, mm)
 // regardless of display `units` — the UI layer converts at render time (see UnitConversions.kt).
@@ -73,8 +104,8 @@ data class WeatherSnapshot(
     val locationName: String,
     val units: Units,
     val currentTempC: Double,
-    val currentApparentTempC: Double,
-    val currentHumidity: Int,
+    val currentApparentTempC: Double?,
+    val currentHumidity: Int?,
     val currentWindKmh: Double,
     val currentWeatherCode: Int,
     val hourly: List<HourlyPoint>,

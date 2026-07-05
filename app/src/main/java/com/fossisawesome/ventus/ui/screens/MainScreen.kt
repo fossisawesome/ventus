@@ -302,8 +302,9 @@ private fun ForecastBody(snapshot: WeatherSnapshot, staleBanner: String?) {
                 modifier = Modifier.padding(top = 6.dp),
             )
             if (today != null) {
+                val feelsLikeSuffix = snapshot.currentApparentTempC?.let { " · Feels like ${tempValue(it, isImperial)}°" } ?: ""
                 Text(
-                    text = "H:${tempValue(today.tempMaxC, isImperial)}° L:${tempValue(today.tempMinC, isImperial)}° · Feels like ${tempValue(snapshot.currentApparentTempC, isImperial)}°",
+                    text = "H:${tempValue(today.tempMaxC, isImperial)}° L:${tempValue(today.tempMinC, isImperial)}°$feelsLikeSuffix",
                     color = colors.muted,
                     fontFamily = font,
                     fontSize = 13.sp,
@@ -321,8 +322,12 @@ private fun ForecastBody(snapshot: WeatherSnapshot, staleBanner: String?) {
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             val wind = if (isImperial) kmhToMph(snapshot.currentWindKmh) else snapshot.currentWindKmh
-            StatChip(R.drawable.ic_thermometer, "${tempValue(snapshot.currentApparentTempC, isImperial)}°", "Feels like")
-            StatChip(R.drawable.ic_droplet, "${snapshot.currentHumidity}%", "Humidity")
+            snapshot.currentApparentTempC?.let {
+                StatChip(R.drawable.ic_thermometer, "${tempValue(it, isImperial)}°", "Feels like")
+            }
+            snapshot.currentHumidity?.let {
+                StatChip(R.drawable.ic_droplet, "$it%", "Humidity")
+            }
             StatChip(R.drawable.ic_wind, "${wind.roundToInt()}${if (isImperial) "mph" else "km/h"}", "Wind")
             StatChip(R.drawable.ic_weather_sun, snapshot.uvIndex?.roundToInt()?.toString() ?: "—", "UV Index")
             StatChip(R.drawable.ic_droplet, "${today?.precipitationProbability ?: 0}%", "Precipitation")
