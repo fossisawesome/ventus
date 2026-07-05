@@ -18,6 +18,19 @@ fun celsiusToFahrenheit(c: Double): Double = c * 9.0 / 5.0 + 32.0
 fun fahrenheitToCelsius(f: Double): Double = (f - 32.0) * 5.0 / 9.0
 fun kmhToMph(kmh: Double): Double = kmh / 1.609344
 fun mmToInches(mm: Double): Double = mm / 25.4
+fun mphToKmh(mph: Double): Double = mph * 1.609344
+fun inchesToMm(inches: Double): Double = inches * 25.4
+
+// Rough bounding boxes for NWS coverage (CONUS, Alaska, Hawaii, Puerto Rico/USVI) — good enough
+// to gate the NWS provider toggle without a persisted per-location country code (the app only
+// tracks device-locale country code today, not the selected location's — see MainActivity.kt).
+fun isUsLocation(lat: Double, lon: Double): Boolean {
+    val conus = lat in 24.0..50.0 && lon in -125.0..-66.0
+    val alaska = lat in 51.0..72.0 && lon in -170.0..-129.0
+    val hawaii = lat in 18.0..23.0 && lon in -161.0..-154.0
+    val puertoRico = lat in 17.5..18.6 && lon in -67.5..-64.5
+    return conus || alaska || hawaii || puertoRico
+}
 
 data class WeatherCodeInfo(val description: String, @DrawableRes val icon: Int)
 
@@ -66,4 +79,26 @@ fun aqiInfo(aqi: Int): AqiInfo = when {
     aqi <= 200 -> AqiInfo("Unhealthy", "Everyone may begin to experience health effects.")
     aqi <= 300 -> AqiInfo("Very unhealthy", "Health alert — avoid outdoor exertion.")
     else -> AqiInfo("Hazardous", "Health warning of emergency conditions.")
+}
+
+// Maps an NWS icon URL (e.g. "https://api.weather.gov/icons/land/day/tsra,40?size=medium") to the
+// closest existing WMO weather code, so NWS conditions render through the same weatherCodeInfo()
+// icon set as Open-Meteo — no separate icon set needed for the NWS provider.
+fun nwsIconToWeatherCode(iconUrl: String?): Int {
+    if (iconUrl == null) return 3
+    val keyword = iconUrl.substringAfterLast('/').substringBefore('?').substringBefore(',').lowercase()
+    return when {
+        "tsra" in keyword -> 95
+        "snow" in keyword -> 71
+        "sleet" in keyword -> 67
+        "fzra" in keyword -> 66
+        "rain_showers" in keyword -> 80
+        "rain" in keyword -> 61
+        "fog" in keyword -> 45
+        "skc" in keyword || "clear" in keyword -> 0
+        "few" in keyword -> 1
+        "sct" in keyword -> 2
+        "bkn" in keyword || "ovc" in keyword -> 3
+        else -> 3
+    }
 }
