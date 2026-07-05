@@ -3,7 +3,6 @@ package com.fossisawesome.ventus.viewmodel
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.emptyPreferences
-import com.fossisawesome.ventus.data.Units
 import com.fossisawesome.ventus.data.api.GeocodingApi
 import com.fossisawesome.ventus.data.api.WeatherApi
 import com.fossisawesome.ventus.data.location.LocationResult
@@ -43,7 +42,7 @@ private val sampleResponse = OpenMeteoForecastResponse(
 )
 
 private class FakeWeatherApi : WeatherApi {
-    override suspend fun fetchForecast(lat: Double, lon: Double, units: Units) = sampleResponse
+    override suspend fun fetchForecast(lat: Double, lon: Double) = sampleResponse
 }
 
 private class FakeGeocodingApi(private val results: List<GeocodingResult> = emptyList()) : GeocodingApi {

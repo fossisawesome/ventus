@@ -13,7 +13,7 @@ import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 
 interface WeatherApi {
-    suspend fun fetchForecast(lat: Double, lon: Double, units: Units): OpenMeteoForecastResponse
+    suspend fun fetchForecast(lat: Double, lon: Double): OpenMeteoForecastResponse
 }
 
 class OpenMeteoWeatherApi(
@@ -22,12 +22,12 @@ class OpenMeteoWeatherApi(
 
     private val gson = Gson()
 
-    override suspend fun fetchForecast(lat: Double, lon: Double, units: Units): OpenMeteoForecastResponse =
+    // Always requested in metric — WeatherSnapshot stores SI values regardless of the user's
+    // display unit preference; conversion for display happens in the UI layer (see
+    // UnitConversions.kt). Requesting the API's own unit conversion here would double-convert
+    // once the UI applies celsiusToFahrenheit()/kmhToMph() on top.
+    override suspend fun fetchForecast(lat: Double, lon: Double): OpenMeteoForecastResponse =
         withContext(Dispatchers.IO) {
-            val tempUnit = if (units == Units.IMPERIAL) "fahrenheit" else "celsius"
-            val windUnit = if (units == Units.IMPERIAL) "mph" else "kmh"
-            val precipUnit = if (units == Units.IMPERIAL) "inch" else "mm"
-
             val url = "https://api.open-meteo.com/v1/forecast".toHttpUrl()
                 .newBuilder()
                 .addQueryParameter("latitude", lat.toString())
@@ -35,9 +35,9 @@ class OpenMeteoWeatherApi(
                 .addQueryParameter("current", "temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m")
                 .addQueryParameter("hourly", "temperature_2m,precipitation_probability,weather_code")
                 .addQueryParameter("daily", "weather_code,temperature_2m_max,temperature_2m_min")
-                .addQueryParameter("temperature_unit", tempUnit)
-                .addQueryParameter("wind_speed_unit", windUnit)
-                .addQueryParameter("precipitation_unit", precipUnit)
+                .addQueryParameter("temperature_unit", "celsius")
+                .addQueryParameter("wind_speed_unit", "kmh")
+                .addQueryParameter("precipitation_unit", "mm")
                 .addQueryParameter("timezone", "auto")
                 .addQueryParameter("forecast_days", "7")
                 .build()

@@ -10,6 +10,7 @@ import com.fossisawesome.ventus.data.model.WeatherUiState
 import com.fossisawesome.ventus.data.repository.WeatherRepository
 import com.fossisawesome.ventus.data.resolveUnits
 import com.fossisawesome.ventus.data.storage.AppPreferences
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -62,26 +63,39 @@ class WeatherViewModel(
             val name = prefs.locationName.first()
             if (lat != null && lon != null && name != null) {
                 fetchWeather(lat, lon, name)
+            } else {
+                // No saved location yet — most likely retrying after a failed location fetch
+                // (e.g. tapping "Retry" on the Error screen), so attempt it again rather than
+                // silently doing nothing.
+                attemptCurrentLocation()
             }
         }
     }
 
     fun useCurrentLocation() {
-        viewModelScope.launch {
-            when (val located = locationSource.getCurrentLocation()) {
-                is LocationResult.Success -> {
-                    prefs.setLocation(located.lat, located.lon, "Current location")
-                    fetchWeather(located.lat, located.lon, "Current location")
-                }
-                LocationResult.PermissionDenied, LocationResult.Unavailable -> {
-                    _state.value = WeatherUiState.Error("Location unavailable — try searching for your city")
-                }
+        viewModelScope.launch { attemptCurrentLocation() }
+    }
+
+    private suspend fun attemptCurrentLocation() {
+        when (val located = locationSource.getCurrentLocation()) {
+            is LocationResult.Success -> {
+                prefs.setLocation(located.lat, located.lon, "Current location")
+                fetchWeather(located.lat, located.lon, "Current location")
+            }
+            LocationResult.PermissionDenied, LocationResult.Unavailable -> {
+                _state.value = WeatherUiState.Error("Location unavailable — try searching for your city")
             }
         }
     }
 
+    private var searchJob: Job? = null
+
+    // Cancels any in-flight search before starting a new one — without this, a stale response
+    // for an earlier keystroke's partial query can arrive after a later, more complete query's
+    // response and overwrite it with outdated results.
     fun search(query: String) {
-        viewModelScope.launch {
+        searchJob?.cancel()
+        searchJob = viewModelScope.launch {
             _searchResults.value = geocodingApi.search(query)
         }
     }

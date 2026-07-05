@@ -30,7 +30,7 @@ private class FakeWeatherApi(
     private val response: OpenMeteoForecastResponse? = null,
     private val shouldFail: Boolean = false,
 ) : WeatherApi {
-    override suspend fun fetchForecast(lat: Double, lon: Double, units: Units): OpenMeteoForecastResponse {
+    override suspend fun fetchForecast(lat: Double, lon: Double): OpenMeteoForecastResponse {
         if (shouldFail) error("network down")
         return response ?: error("no fixture response configured")
     }

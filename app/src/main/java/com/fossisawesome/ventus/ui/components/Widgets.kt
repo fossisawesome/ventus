@@ -145,7 +145,9 @@ fun IconButton(
                     interactionSource = interactionSource,
                     indication = null,
                     onClick = {
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        // Haptic feedback is best-effort — devices/emulators without a
+                        // vibrator must never have that break the actual click action.
+                        runCatching { haptic.performHapticFeedback(HapticFeedbackType.LongPress) }
                         onClick()
                     },
                 ) else Modifier

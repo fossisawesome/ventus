@@ -17,7 +17,7 @@ class WeatherRepository(
 
     suspend fun refresh(lat: Double, lon: Double, locationName: String, units: Units): WeatherUiState {
         return try {
-            val response = api.fetchForecast(lat, lon, units)
+            val response = api.fetchForecast(lat, lon)
             val snapshot = mapForecastResponse(locationName, units, response)
             val now = System.currentTimeMillis()
             prefs.setCachedWeather(gson.toJson(snapshot), now)
