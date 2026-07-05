@@ -74,6 +74,43 @@ class SettingsViewModelTest {
     }
 
     @Test
+    fun `weatherProvider defaults to open-meteo`() = runTest {
+        val prefs = AppPreferences(SettingsFakeDataStore())
+        val vm = SettingsViewModel(prefs, loadThemes = { ALL_THEMES }, importTheme = { Result.success(Unit) }, deleteTheme = {})
+
+        assertEquals("open-meteo", vm.weatherProvider.value)
+    }
+
+    @Test
+    fun `selectWeatherProvider persists the choice`() = runTest {
+        val prefs = AppPreferences(SettingsFakeDataStore())
+        val vm = SettingsViewModel(prefs, loadThemes = { ALL_THEMES }, importTheme = { Result.success(Unit) }, deleteTheme = {})
+
+        vm.selectWeatherProvider("nws")
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals("nws", prefs.weatherProvider.first())
+    }
+
+    @Test
+    fun `isNwsAvailable is false when no location is saved`() = runTest {
+        val prefs = AppPreferences(SettingsFakeDataStore())
+        val vm = SettingsViewModel(prefs, loadThemes = { ALL_THEMES }, importTheme = { Result.success(Unit) }, deleteTheme = {})
+
+        assertEquals(false, vm.isNwsAvailable.value)
+    }
+
+    @Test
+    fun `isNwsAvailable is true for a US location`() = runTest {
+        val prefs = AppPreferences(SettingsFakeDataStore())
+        prefs.setLocation(40.7128, -74.0060, "New York")
+        val vm = SettingsViewModel(prefs, loadThemes = { ALL_THEMES }, importTheme = { Result.success(Unit) }, deleteTheme = {})
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(true, vm.isNwsAvailable.value)
+    }
+
+    @Test
     fun `availableThemes reflects loadThemes at construction time`() = runTest {
         val prefs = AppPreferences(SettingsFakeDataStore())
         val custom = ALL_THEMES.first().copy(id = "custom", name = "Custom", isImported = true, sourceFile = "custom.toml")

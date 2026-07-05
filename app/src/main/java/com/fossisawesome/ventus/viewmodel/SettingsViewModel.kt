@@ -2,11 +2,13 @@ package com.fossisawesome.ventus.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.fossisawesome.ventus.data.isUsLocation
 import com.fossisawesome.ventus.data.storage.AppPreferences
 import com.fossisawesome.ventus.ui.theme.AppTheme
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -24,6 +26,13 @@ class SettingsViewModel(
     val themeId: StateFlow<String> = prefs.themeId.stateIn(viewModelScope, SharingStarted.Eagerly, "ventus")
     val fontFamily: StateFlow<String> = prefs.fontFamily.stateIn(viewModelScope, SharingStarted.Eagerly, "Liberation Mono")
     val unitsMode: StateFlow<String> = prefs.unitsMode.stateIn(viewModelScope, SharingStarted.Eagerly, "auto")
+    val weatherProvider: StateFlow<String> = prefs.weatherProvider.stateIn(viewModelScope, SharingStarted.Eagerly, "open-meteo")
+
+    // Drives whether the NWS option is selectable in Settings — NWS has no coverage outside the
+    // US, gated on the currently saved location's coordinates (see isUsLocation()).
+    val isNwsAvailable: StateFlow<Boolean> = combine(prefs.locationLat, prefs.locationLon) { lat, lon ->
+        lat != null && lon != null && isUsLocation(lat, lon)
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, false)
 
     private val _availableThemes = MutableStateFlow(loadThemes())
     val availableThemes: StateFlow<List<AppTheme>> = _availableThemes
@@ -38,6 +47,10 @@ class SettingsViewModel(
 
     fun selectUnitsMode(mode: String) {
         viewModelScope.launch { prefs.setUnitsMode(mode) }
+    }
+
+    fun selectWeatherProvider(id: String) {
+        viewModelScope.launch { prefs.setWeatherProvider(id) }
     }
 
     fun importThemeFile(uriString: String): Result<Unit> {
