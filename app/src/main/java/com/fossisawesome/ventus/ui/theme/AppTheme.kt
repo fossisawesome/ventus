@@ -26,9 +26,13 @@ data class AppTheme(
     val sourceFile: String? = null,
 )
 
+// Pure-Kotlin hex parser (no android.graphics.Color) so this is usable from plain JUnit tests
+// without Robolectric — ALL_THEMES is built by calling this at class-init time.
 internal fun hex(s: String): Color {
     val v = s.trimStart('#')
-    return Color(android.graphics.Color.parseColor("#$v"))
+    val rgb = v.toLong(16)
+    val argb = if (v.length == 6) 0xFF000000L or rgb else rgb
+    return Color(argb)
 }
 
 // 18 themes ported verbatim from Firmium, plus the new "Ventus" flagship theme.
