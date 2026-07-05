@@ -106,7 +106,6 @@ fun AppFontKey.toFontFamily(): FontFamily = when (this) {
     AppFontKey.INTER -> FontFamily(Font(R.font.inter))
     AppFontKey.LIBERATION_MONO -> FontFamily(Font(R.font.liberation_mono))
     AppFontKey.MONOSPACE -> FontFamily.Monospace
-    AppFontKey.SANS_SERIF -> FontFamily.SansSerif
     AppFontKey.BIGBLUE_TERMINAL -> FontFamily(Font(R.font.bigblue_terminal_plus))
     AppFontKey.COUSINE -> FontFamily(Font(R.font.cousine))
     AppFontKey.FIRACODE -> FontFamily(Font(R.font.firacode))
