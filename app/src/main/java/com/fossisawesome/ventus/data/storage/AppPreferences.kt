@@ -22,6 +22,8 @@ class AppPreferences(private val store: DataStore<Preferences>) {
         val FONT_FAMILY = stringPreferencesKey("font_family")
         // "auto" | "metric" | "imperial"
         val UNITS_MODE = stringPreferencesKey("units_mode")
+        // "open-meteo" | "nws"
+        val WEATHER_PROVIDER = stringPreferencesKey("weather_provider")
         val LOCATION_LAT = doublePreferencesKey("location_lat")
         val LOCATION_LON = doublePreferencesKey("location_lon")
         val LOCATION_NAME = stringPreferencesKey("location_name")
@@ -32,6 +34,7 @@ class AppPreferences(private val store: DataStore<Preferences>) {
     val themeId: Flow<String> = store.data.map { it[THEME_ID] ?: "ventus" }
     val fontFamily: Flow<String> = store.data.map { it[FONT_FAMILY] ?: "Liberation Mono" }
     val unitsMode: Flow<String> = store.data.map { it[UNITS_MODE] ?: "auto" }
+    val weatherProvider: Flow<String> = store.data.map { it[WEATHER_PROVIDER] ?: "open-meteo" }
     val locationLat: Flow<Double?> = store.data.map { it[LOCATION_LAT] }
     val locationLon: Flow<Double?> = store.data.map { it[LOCATION_LON] }
     val locationName: Flow<String?> = store.data.map { it[LOCATION_NAME] }
@@ -41,6 +44,7 @@ class AppPreferences(private val store: DataStore<Preferences>) {
     suspend fun setThemeId(id: String) = store.edit { it[THEME_ID] = id }
     suspend fun setFontFamily(name: String) = store.edit { it[FONT_FAMILY] = name }
     suspend fun setUnitsMode(mode: String) = store.edit { it[UNITS_MODE] = mode }
+    suspend fun setWeatherProvider(id: String) = store.edit { it[WEATHER_PROVIDER] = id }
 
     suspend fun setLocation(lat: Double, lon: Double, name: String) = store.edit {
         it[LOCATION_LAT] = lat
