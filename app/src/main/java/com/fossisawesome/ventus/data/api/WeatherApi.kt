@@ -13,7 +13,7 @@ import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 
 interface WeatherApi {
-    suspend fun fetchForecast(lat: Double, lon: Double): OpenMeteoForecastResponse
+    suspend fun fetchForecast(locationName: String, units: Units, lat: Double, lon: Double, aqi: Int?): WeatherSnapshot
 }
 
 class OpenMeteoWeatherApi(
@@ -26,7 +26,7 @@ class OpenMeteoWeatherApi(
     // display unit preference; conversion for display happens in the UI layer (see
     // UnitConversions.kt). Requesting the API's own unit conversion here would double-convert
     // once the UI applies celsiusToFahrenheit()/kmhToMph() on top.
-    override suspend fun fetchForecast(lat: Double, lon: Double): OpenMeteoForecastResponse =
+    override suspend fun fetchForecast(locationName: String, units: Units, lat: Double, lon: Double, aqi: Int?): WeatherSnapshot =
         withContext(Dispatchers.IO) {
             val url = "https://api.open-meteo.com/v1/forecast".toHttpUrl()
                 .newBuilder()
@@ -45,7 +45,8 @@ class OpenMeteoWeatherApi(
             val response = client.newCall(Request.Builder().url(url).build()).execute()
             if (!response.isSuccessful) error("Weather request failed with HTTP ${response.code}")
             val body = response.body?.string() ?: error("Empty response from forecast endpoint")
-            gson.fromJson(body, OpenMeteoForecastResponse::class.java)
+            val parsed = gson.fromJson(body, OpenMeteoForecastResponse::class.java)
+            mapForecastResponse(locationName, units, parsed, aqi)
         }
 }
 
@@ -56,7 +57,9 @@ internal fun isoLocalTimeToEpochSeconds(iso: String): Long =
     LocalDateTime.parse(iso, DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm"))
         .toEpochSecond(ZoneOffset.UTC)
 
-fun mapForecastResponse(
+// Kept `internal` (not `private`) so WeatherResponseMappingTest can call it directly without
+// spinning up OkHttp/a fake server.
+internal fun mapForecastResponse(
     locationName: String,
     units: Units,
     response: OpenMeteoForecastResponse,
@@ -66,7 +69,12 @@ fun mapForecastResponse(
     val hourly = response.hourly
     val daily = response.daily
 
+    // API returns forecast_days=7 worth of hourly data (168 points); the UI's "24-hour forecast"
+    // strip only wants the next 24h from now, else it scrolls through the whole week. Uses the
+    // API's own "current" timestamp as the reference point (not the device clock) so this stays
+    // correct regardless of location timezone vs device timezone.
     val hourlyPoints = if (hourly != null) {
+        val nowEpoch = isoLocalTimeToEpochSeconds(current.time)
         hourly.time.indices.map { i ->
             HourlyPoint(
                 epochSeconds = isoLocalTimeToEpochSeconds(hourly.time[i]),
@@ -74,7 +82,7 @@ fun mapForecastResponse(
                 precipitationProbability = hourly.precipitationProbability[i],
                 weatherCode = hourly.weatherCode[i],
             )
-        }
+        }.filter { it.epochSeconds >= nowEpoch }.take(24)
     } else emptyList()
 
     val dailyPoints = if (daily != null) {
