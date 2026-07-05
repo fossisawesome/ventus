@@ -10,9 +10,12 @@ import kotlinx.coroutines.flow.map
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore("ventus_prefs")
 
 // Non-sensitive app preferences stored in DataStore.
-class AppPreferences(context: Context) {
+// The primary constructor takes the DataStore directly (rather than only a Context) so unit
+// tests can inject an in-memory fake instead of a real, file-backed one, without needing
+// Robolectric or an Android Context.
+class AppPreferences(private val store: DataStore<Preferences>) {
 
-    private val store = context.dataStore
+    constructor(context: Context) : this(context.dataStore)
 
     companion object {
         val THEME_ID = stringPreferencesKey("theme_id")
