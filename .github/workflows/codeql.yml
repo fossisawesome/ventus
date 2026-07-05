@@ -10,7 +10,7 @@ on:
 
 jobs:
   analyze:
-    name: Analyze (kotlin)
+    name: Analyze (java)
     runs-on: ubuntu-latest
     permissions:
       actions: read
@@ -30,13 +30,13 @@ jobs:
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v4
         with:
-          languages: java-kotlin
+          languages: java
           build-mode: manual
 
       - name: Build app
-        run: ./gradlew compileDebugKotlin compileDebugJavaWithJavac --no-daemon
+        run: ./gradlew compileDebugJavaWithJavac --no-daemon
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v4
         with:
-          category: "/language:java-kotlin"
+          category: "/language:java"
