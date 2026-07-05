@@ -23,6 +23,8 @@ fun AppNavGraph(
     val themeId by settingsViewModel.themeId.collectAsStateWithLifecycle()
     val fontFamily by settingsViewModel.fontFamily.collectAsStateWithLifecycle()
     val unitsMode by settingsViewModel.unitsMode.collectAsStateWithLifecycle()
+    val weatherProvider by settingsViewModel.weatherProvider.collectAsStateWithLifecycle()
+    val isNwsAvailable by settingsViewModel.isNwsAvailable.collectAsStateWithLifecycle()
     val availableThemes by settingsViewModel.availableThemes.collectAsStateWithLifecycle()
 
     NavHost(navController = navController, startDestination = "main") {
@@ -42,10 +44,13 @@ fun AppNavGraph(
                 themeId = themeId,
                 fontFamily = fontFamily,
                 unitsMode = unitsMode,
+                weatherProvider = weatherProvider,
+                isNwsAvailable = isNwsAvailable,
                 availableThemes = availableThemes,
                 onThemeSelected = { settingsViewModel.selectTheme(it) },
                 onFontSelected = { settingsViewModel.selectFont(it) },
                 onUnitsModeSelected = { settingsViewModel.selectUnitsMode(it) },
+                onWeatherProviderSelected = { settingsViewModel.selectWeatherProvider(it) },
                 onImportTheme = onImportTheme,
                 onBack = { navController.popBackStack() },
             )

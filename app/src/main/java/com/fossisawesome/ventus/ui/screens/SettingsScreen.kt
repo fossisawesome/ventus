@@ -37,10 +37,13 @@ fun SettingsScreen(
     themeId: String,
     fontFamily: String,
     unitsMode: String,
+    weatherProvider: String,
+    isNwsAvailable: Boolean,
     availableThemes: List<AppTheme>,
     onThemeSelected: (String) -> Unit,
     onFontSelected: (String) -> Unit,
     onUnitsModeSelected: (String) -> Unit,
+    onWeatherProviderSelected: (String) -> Unit,
     onImportTheme: () -> Unit,
     onBack: () -> Unit,
 ) {
@@ -86,6 +89,29 @@ fun SettingsScreen(
                         .padding(vertical = 10.dp),
                 ) {
                     Text(label, color = if (value == unitsMode) colors.accent else colors.text, fontFamily = font)
+                }
+            }
+
+            Spacer(Modifier.height(24.dp))
+            Text("Weather Provider", color = colors.muted, fontFamily = font, fontSize = 13.sp)
+            Spacer(Modifier.height(8.dp))
+            listOf("open-meteo" to "Open-Meteo", "nws" to "NWS (US only)").forEach { (value, label) ->
+                val enabled = value != "nws" || isNwsAvailable
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable(enabled = enabled) { onWeatherProviderSelected(value) }
+                        .padding(vertical = 10.dp),
+                ) {
+                    Text(
+                        label,
+                        color = when {
+                            !enabled -> colors.muted.copy(alpha = 0.5f)
+                            value == weatherProvider -> colors.accent
+                            else -> colors.text
+                        },
+                        fontFamily = font,
+                    )
                 }
             }
             Spacer(Modifier.height(24.dp))
