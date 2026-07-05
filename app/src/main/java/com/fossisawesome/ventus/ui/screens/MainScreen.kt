@@ -1,5 +1,6 @@
 package com.fossisawesome.ventus.ui.screens
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
@@ -17,6 +18,8 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -212,7 +215,12 @@ private fun ForecastBody(snapshot: WeatherSnapshot, staleBanner: String?) {
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             val info = weatherCodeInfo(snapshot.currentWeatherCode)
-            Text(info.icon, fontSize = 48.sp)
+            Image(
+                painter = painterResource(info.icon),
+                contentDescription = info.description,
+                colorFilter = ColorFilter.tint(colors.text),
+                modifier = Modifier.size(48.dp),
+            )
             Text(displayTemp(snapshot.currentTempC), color = colors.text, fontFamily = font, fontSize = 48.sp, fontWeight = FontWeight.Bold)
             Text(info.description, color = colors.muted, fontFamily = font)
             Spacer(Modifier.height(8.dp))
@@ -235,7 +243,12 @@ private fun ForecastBody(snapshot: WeatherSnapshot, staleBanner: String?) {
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
                     Text(hourLabel(hour.epochSeconds), color = colors.muted, fontFamily = font, fontSize = 12.sp)
-                    Text(weatherCodeInfo(hour.weatherCode).icon, fontSize = 20.sp)
+                    Image(
+                        painter = painterResource(weatherCodeInfo(hour.weatherCode).icon),
+                        contentDescription = weatherCodeInfo(hour.weatherCode).description,
+                        colorFilter = ColorFilter.tint(colors.text),
+                        modifier = Modifier.size(20.dp),
+                    )
                     Text(displayTemp(hour.tempC), color = colors.text, fontFamily = font, fontSize = 13.sp)
                 }
             }
@@ -250,7 +263,12 @@ private fun ForecastBody(snapshot: WeatherSnapshot, staleBanner: String?) {
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(dayLabel(day.epochSeconds), color = colors.text, fontFamily = font, modifier = Modifier.weight(1f))
-                    Text(weatherCodeInfo(day.weatherCode).icon, fontSize = 18.sp)
+                    Image(
+                        painter = painterResource(weatherCodeInfo(day.weatherCode).icon),
+                        contentDescription = weatherCodeInfo(day.weatherCode).description,
+                        colorFilter = ColorFilter.tint(colors.text),
+                        modifier = Modifier.size(18.dp),
+                    )
                     Spacer(Modifier.width(12.dp))
                     Text(displayTemp(day.tempMinC), color = colors.muted, fontFamily = font)
                     Spacer(Modifier.width(8.dp))
