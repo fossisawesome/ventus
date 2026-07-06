@@ -50,3 +50,19 @@ class FusedLocationSource(private val context: Context) : LocationSource {
         }
     }
 }
+
+// GPS-tracked entries re-resolve their coordinates live on every refresh rather than trusting the
+// last-saved lat/lon (the device may have moved since) — falls back to the last-known coordinates
+// only if a fresh GPS fix can't be obtained, so a temporary GPS blip doesn't blank an otherwise-
+// working page. Shared by WeatherViewModel's per-page refresh and the background refresh path
+// (work/BackgroundRefresh.kt) so this rule lives in exactly one place.
+suspend fun resolveLocationCoords(
+    location: com.fossisawesome.ventus.data.model.Location,
+    locationSource: LocationSource,
+): Pair<Double, Double> {
+    if (!location.isCurrentLocation) return location.lat to location.lon
+    return when (val result = locationSource.getCurrentLocation()) {
+        is LocationResult.Success -> result.lat to result.lon
+        LocationResult.PermissionDenied, LocationResult.Unavailable -> location.lat to location.lon
+    }
+}

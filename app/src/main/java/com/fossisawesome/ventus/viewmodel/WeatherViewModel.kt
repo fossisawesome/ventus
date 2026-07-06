@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.fossisawesome.ventus.data.api.GeocodingApi
 import com.fossisawesome.ventus.data.location.LocationResult
 import com.fossisawesome.ventus.data.location.LocationSource
+import com.fossisawesome.ventus.data.location.resolveLocationCoords
 import com.fossisawesome.ventus.data.model.GeocodingResult
 import com.fossisawesome.ventus.data.model.Location
 import com.fossisawesome.ventus.data.model.WeatherUiState
@@ -97,7 +98,7 @@ class WeatherViewModel(
         viewModelScope.launch {
             try {
                 val location = locations.value.find { it.id == locationId } ?: return@launch
-                val (lat, lon) = resolveCoords(location)
+                val (lat, lon) = resolveLocationCoords(location, locationSource)
                 _weatherStates.update { it + (locationId to WeatherUiState.Loading) }
                 val unitsMode = prefs.unitsMode.first()
                 val units = resolveUnits(unitsMode, countryCode)
@@ -107,18 +108,6 @@ class WeatherViewModel(
             } finally {
                 refreshingIds.remove(locationId)
             }
-        }
-    }
-
-    // GPS-tracked entries re-resolve their coordinates live on every refresh rather than trusting
-    // the last-saved lat/lon (the device may have moved since) — falls back to the last-known
-    // coordinates only if a fresh GPS fix can't be obtained, so a temporary GPS blip doesn't blank
-    // an otherwise-working page.
-    private suspend fun resolveCoords(location: Location): Pair<Double, Double> {
-        if (!location.isCurrentLocation) return location.lat to location.lon
-        return when (val result = locationSource.getCurrentLocation()) {
-            is LocationResult.Success -> result.lat to result.lon
-            LocationResult.PermissionDenied, LocationResult.Unavailable -> location.lat to location.lon
         }
     }
 
