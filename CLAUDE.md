@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-**Version**: 0.4.0
+**Version**: 0.4.1
 
 Start every conversation: invoke `/caveman` and `/using-superpowers` skill.
 

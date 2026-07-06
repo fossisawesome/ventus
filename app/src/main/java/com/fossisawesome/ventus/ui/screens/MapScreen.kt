@@ -44,7 +44,9 @@ private const val BASE_SOURCE_ID = "osm-base-source"
 private const val BASE_LAYER_ID = "osm-base-layer"
 private const val RADAR_SOURCE_ID = "rainviewer-radar-source"
 private const val RADAR_LAYER_ID = "rainviewer-radar-layer"
-private const val OSM_TILE_URL = "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+// CARTO basemaps are free/keyless and explicitly meant for app consumption, unlike raw
+// tile.openstreetmap.org (policy-blocks bulk app traffic, caused blank-map 403s here).
+private const val BASE_TILE_URL = "https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png"
 
 private fun radarTileUrl(frame: RadarFrame) = "${frame.host}${frame.path}/256/{z}/{x}/{y}/2/1_1.png"
 
@@ -167,7 +169,7 @@ private fun RadarMapView(
         mapView.getMapAsync { map ->
             mapLibreMap = map
             val style = Style.Builder()
-                .withSource(RasterSource(BASE_SOURCE_ID, OSM_TILE_URL, 256))
+                .withSource(RasterSource(BASE_SOURCE_ID, BASE_TILE_URL, 256))
                 .withLayer(RasterLayer(BASE_LAYER_ID, BASE_SOURCE_ID))
             map.setStyle(style) {
                 map.cameraPosition = CameraPosition.Builder()
