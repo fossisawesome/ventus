@@ -14,6 +14,7 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DragHandle
+import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.pullrefresh.PullRefreshIndicator
 import androidx.compose.material.pullrefresh.pullRefresh
 import androidx.compose.material.pullrefresh.rememberPullRefreshState
@@ -67,6 +68,7 @@ fun MainScreen(
     onReorderLocations: (List<String>) -> Unit,
     onSelectLocation: (String) -> Unit,
     onDismissLocationLimitMessage: () -> Unit,
+    onRadarClick: () -> Unit,
     onSettingsClick: () -> Unit,
 ) {
     val colors = LocalAppColors.current
@@ -120,6 +122,16 @@ fun MainScreen(
                         AppIcon(R.drawable.ic_chevron_right, null, tint = colors.muted, modifier = Modifier.size(16.dp))
                     }
                 }
+                IconButton(
+                    onClick = onRadarClick,
+                    modifier = Modifier
+                        .size(38.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(colors.accent.copy(alpha = 0.08f)),
+                ) {
+                    AppIcon(Icons.Default.Map, "Radar", tint = colors.accent, modifier = Modifier.size(18.dp))
+                }
+                Spacer(Modifier.width(8.dp))
                 IconButton(
                     onClick = onSettingsClick,
                     modifier = Modifier

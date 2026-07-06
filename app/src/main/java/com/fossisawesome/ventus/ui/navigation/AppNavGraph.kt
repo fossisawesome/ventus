@@ -1,13 +1,16 @@
 package com.fossisawesome.ventus.ui.navigation
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.fossisawesome.ventus.ui.screens.MainScreen
+import com.fossisawesome.ventus.ui.screens.MapScreen
 import com.fossisawesome.ventus.ui.screens.SettingsScreen
+import com.fossisawesome.ventus.viewmodel.RadarViewModel
 import com.fossisawesome.ventus.viewmodel.SettingsViewModel
 import com.fossisawesome.ventus.viewmodel.WeatherViewModel
 
@@ -15,6 +18,7 @@ import com.fossisawesome.ventus.viewmodel.WeatherViewModel
 fun AppNavGraph(
     weatherViewModel: WeatherViewModel,
     settingsViewModel: SettingsViewModel,
+    radarViewModel: RadarViewModel,
     onImportTheme: () -> Unit,
 ) {
     val navController = rememberNavController()
@@ -31,6 +35,10 @@ fun AppNavGraph(
     val backgroundRefreshEnabled by settingsViewModel.backgroundRefreshEnabled.collectAsStateWithLifecycle()
     val backgroundRefreshIntervalMinutes by settingsViewModel.backgroundRefreshIntervalMinutes.collectAsStateWithLifecycle()
     val availableThemes by settingsViewModel.availableThemes.collectAsStateWithLifecycle()
+    val radarFrames by radarViewModel.frames.collectAsStateWithLifecycle()
+    val radarCurrentFrameIndex by radarViewModel.currentFrameIndex.collectAsStateWithLifecycle()
+    val radarIsPlaying by radarViewModel.isPlaying.collectAsStateWithLifecycle()
+    val radarActiveLocation by radarViewModel.activeLocation.collectAsStateWithLifecycle()
 
     NavHost(navController = navController, startDestination = "main") {
         composable("main") {
@@ -49,7 +57,20 @@ fun AppNavGraph(
                 onReorderLocations = { weatherViewModel.reorderLocations(it) },
                 onSelectLocation = { weatherViewModel.selectLocation(it) },
                 onDismissLocationLimitMessage = { weatherViewModel.dismissLocationLimitMessage() },
+                onRadarClick = { navController.navigate("radar") },
                 onSettingsClick = { navController.navigate("settings") },
+            )
+        }
+        composable("radar") {
+            LaunchedEffect(Unit) { radarViewModel.loadFrames() }
+            MapScreen(
+                activeLocation = radarActiveLocation,
+                frames = radarFrames,
+                currentFrameIndex = radarCurrentFrameIndex,
+                isPlaying = radarIsPlaying,
+                onTogglePlayback = { radarViewModel.togglePlayback() },
+                onAdvanceFrame = { radarViewModel.advanceFrame() },
+                onBack = { navController.popBackStack() },
             )
         }
         composable("settings") {

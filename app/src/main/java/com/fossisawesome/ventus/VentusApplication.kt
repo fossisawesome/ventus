@@ -2,10 +2,12 @@ package com.fossisawesome.ventus
 
 import android.app.Application
 import androidx.work.Configuration
+import com.fossisawesome.ventus.data.api.HttpRainViewerApi
 import com.fossisawesome.ventus.data.api.NwsWeatherApi
 import com.fossisawesome.ventus.data.api.OpenMeteoAirQualityApi
 import com.fossisawesome.ventus.data.api.OpenMeteoGeocodingApi
 import com.fossisawesome.ventus.data.api.OpenMeteoWeatherApi
+import com.fossisawesome.ventus.data.api.RainViewerApi
 import com.fossisawesome.ventus.data.location.FusedLocationSource
 import com.fossisawesome.ventus.data.repository.LocationRepository
 import com.fossisawesome.ventus.data.repository.WeatherRepository
@@ -27,6 +29,7 @@ class VentusApplication : Application(), Configuration.Provider {
     val nwsWeatherApi by lazy { NwsWeatherApi() }
     val airQualityApi by lazy { OpenMeteoAirQualityApi() }
     val geocodingApi by lazy { OpenMeteoGeocodingApi() }
+    val rainViewerApi: RainViewerApi by lazy { HttpRainViewerApi() }
     val weatherRepository by lazy { WeatherRepository(weatherApi, nwsWeatherApi, airQualityApi, prefs) }
     val locationRepository by lazy { LocationRepository(prefs) }
     val locationSource by lazy { FusedLocationSource(this) }

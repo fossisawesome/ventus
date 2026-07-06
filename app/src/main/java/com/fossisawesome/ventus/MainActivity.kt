@@ -20,6 +20,7 @@ import com.fossisawesome.ventus.ui.theme.VentusTheme
 import com.fossisawesome.ventus.ui.theme.allThemes
 import com.fossisawesome.ventus.ui.theme.deleteImportedTheme
 import com.fossisawesome.ventus.ui.theme.importThemeFromUri
+import com.fossisawesome.ventus.viewmodel.RadarViewModel
 import com.fossisawesome.ventus.viewmodel.SettingsViewModel
 import com.fossisawesome.ventus.viewmodel.WeatherViewModel
 import java.util.Locale
@@ -70,6 +71,11 @@ class MainActivity : ComponentActivity() {
                     )
                 }
             )
+            val radarViewModel: RadarViewModel = viewModel(
+                factory = viewModelFactory {
+                    RadarViewModel(app.rainViewerApi, app.locationRepository)
+                }
+            )
 
             // Registered once per composition; importThemeFile() re-reads availableThemes on success.
             onThemeUriPicked = { uri -> settingsViewModel.importThemeFile(uri.toString()) }
@@ -83,6 +89,7 @@ class MainActivity : ComponentActivity() {
                 AppNavGraph(
                     weatherViewModel = weatherViewModel,
                     settingsViewModel = settingsViewModel,
+                    radarViewModel = radarViewModel,
                     onImportTheme = { themeImportLauncher.launch("*/*") },
                 )
             }
