@@ -39,11 +39,15 @@ fun SettingsScreen(
     unitsMode: String,
     weatherProvider: String,
     isNwsAvailable: Boolean,
+    backgroundRefreshEnabled: Boolean,
+    backgroundRefreshIntervalMinutes: Int,
     availableThemes: List<AppTheme>,
     onThemeSelected: (String) -> Unit,
     onFontSelected: (String) -> Unit,
     onUnitsModeSelected: (String) -> Unit,
     onWeatherProviderSelected: (String) -> Unit,
+    onBackgroundRefreshEnabledChanged: (Boolean) -> Unit,
+    onBackgroundRefreshIntervalSelected: (Int) -> Unit,
     onImportTheme: () -> Unit,
     onBack: () -> Unit,
 ) {
@@ -113,6 +117,22 @@ fun SettingsScreen(
                         fontFamily = font,
                     )
                 }
+            }
+            Spacer(Modifier.height(24.dp))
+            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text("Background Refresh", color = colors.muted, fontFamily = font, fontSize = 13.sp, modifier = Modifier.weight(1f))
+                Toggle(checked = backgroundRefreshEnabled, onCheckedChange = onBackgroundRefreshEnabledChanged)
+            }
+            if (backgroundRefreshEnabled) {
+                Spacer(Modifier.height(12.dp))
+                Slider(
+                    steps = listOf(30, 60, 120, 180, 360),
+                    selectedValue = backgroundRefreshIntervalMinutes,
+                    onValueSelected = onBackgroundRefreshIntervalSelected,
+                    labelForStep = { minutes ->
+                        if (minutes < 60) "${minutes}m" else "${minutes / 60}h"
+                    },
+                )
             }
             Spacer(Modifier.height(24.dp))
         }

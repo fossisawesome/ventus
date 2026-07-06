@@ -28,6 +28,8 @@ fun AppNavGraph(
     val unitsMode by settingsViewModel.unitsMode.collectAsStateWithLifecycle()
     val weatherProvider by settingsViewModel.weatherProvider.collectAsStateWithLifecycle()
     val isNwsAvailable by settingsViewModel.isNwsAvailable.collectAsStateWithLifecycle()
+    val backgroundRefreshEnabled by settingsViewModel.backgroundRefreshEnabled.collectAsStateWithLifecycle()
+    val backgroundRefreshIntervalMinutes by settingsViewModel.backgroundRefreshIntervalMinutes.collectAsStateWithLifecycle()
     val availableThemes by settingsViewModel.availableThemes.collectAsStateWithLifecycle()
 
     NavHost(navController = navController, startDestination = "main") {
@@ -57,11 +59,15 @@ fun AppNavGraph(
                 unitsMode = unitsMode,
                 weatherProvider = weatherProvider,
                 isNwsAvailable = isNwsAvailable,
+                backgroundRefreshEnabled = backgroundRefreshEnabled,
+                backgroundRefreshIntervalMinutes = backgroundRefreshIntervalMinutes,
                 availableThemes = availableThemes,
                 onThemeSelected = { settingsViewModel.selectTheme(it) },
                 onFontSelected = { settingsViewModel.selectFont(it) },
                 onUnitsModeSelected = { settingsViewModel.selectUnitsMode(it) },
                 onWeatherProviderSelected = { settingsViewModel.selectWeatherProvider(it) },
+                onBackgroundRefreshEnabledChanged = { settingsViewModel.setBackgroundRefreshEnabled(it) },
+                onBackgroundRefreshIntervalSelected = { settingsViewModel.setBackgroundRefreshIntervalMinutes(it) },
                 onImportTheme = onImportTheme,
                 onBack = { navController.popBackStack() },
             )

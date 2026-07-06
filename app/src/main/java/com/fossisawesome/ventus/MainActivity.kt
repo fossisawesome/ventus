@@ -63,6 +63,7 @@ class MainActivity : ComponentActivity() {
                     SettingsViewModel(
                         prefs = app.prefs,
                         locationRepository = app.locationRepository,
+                        scheduler = app.backgroundRefreshScheduler,
                         loadThemes = { allThemes(applicationContext) },
                         importTheme = { uriString -> importThemeFromUri(applicationContext, Uri.parse(uriString)) },
                         deleteTheme = { file -> deleteImportedTheme(applicationContext, file) },
