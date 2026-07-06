@@ -34,6 +34,7 @@ import com.fossisawesome.ventus.ui.theme.LocalAppFontFamily
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.TimeZone
 import kotlin.math.roundToInt
 
 @OptIn(androidx.compose.material.ExperimentalMaterialApi::class)
@@ -453,11 +454,16 @@ private fun tempValue(c: Double, isImperial: Boolean): Int {
     return v.roundToInt()
 }
 
-private fun hourLabel(epochSeconds: Long): String =
-    SimpleDateFormat("ha", Locale.getDefault()).format(Date(epochSeconds * 1000))
+// Epoch values are built by isoLocalTimeToEpochSeconds(), which mislabels the API's
+// location-local wall-clock time as UTC. Formatting must use UTC here to cancel that
+// mislabeling out and recover the correct location-local time, regardless of device timezone.
+private fun locationLocalFormat(pattern: String, epochSeconds: Long): String =
+    SimpleDateFormat(pattern, Locale.getDefault()).apply {
+        timeZone = TimeZone.getTimeZone("UTC")
+    }.format(Date(epochSeconds * 1000))
 
-private fun dayLabel(epochSeconds: Long): String =
-    SimpleDateFormat("EEE", Locale.getDefault()).format(Date(epochSeconds * 1000))
+private fun hourLabel(epochSeconds: Long): String = locationLocalFormat("ha", epochSeconds)
 
-private fun timeLabel(epochSeconds: Long): String =
-    SimpleDateFormat("h:mm a", Locale.getDefault()).format(Date(epochSeconds * 1000))
+private fun dayLabel(epochSeconds: Long): String = locationLocalFormat("EEE", epochSeconds)
+
+private fun timeLabel(epochSeconds: Long): String = locationLocalFormat("h:mm a", epochSeconds)
