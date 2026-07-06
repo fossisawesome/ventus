@@ -7,6 +7,7 @@ import com.fossisawesome.ventus.data.model.Location
 import com.fossisawesome.ventus.data.repository.LocationRepository
 import com.fossisawesome.ventus.data.storage.AppPreferences
 import com.fossisawesome.ventus.ui.theme.ALL_THEMES
+import com.fossisawesome.ventus.work.BackgroundRefreshScheduler
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -31,6 +32,16 @@ private class SettingsFakeDataStore : DataStore<Preferences> {
     }
 }
 
+private class FakeBackgroundRefreshScheduler : BackgroundRefreshScheduler {
+    var scheduledIntervalMinutes: Int? = null
+        private set
+    var cancelCallCount = 0
+        private set
+
+    override fun schedule(intervalMinutes: Int) { scheduledIntervalMinutes = intervalMinutes }
+    override fun cancel() { cancelCallCount++; scheduledIntervalMinutes = null }
+}
+
 @OptIn(ExperimentalCoroutinesApi::class)
 class SettingsViewModelTest {
 
@@ -42,8 +53,8 @@ class SettingsViewModelTest {
     @After
     fun tearDown() { Dispatchers.resetMain() }
 
-    private fun buildVm(prefs: AppPreferences): SettingsViewModel =
-        SettingsViewModel(prefs, LocationRepository(prefs), loadThemes = { ALL_THEMES }, importTheme = { Result.success(Unit) }, deleteTheme = {})
+    private fun buildVm(prefs: AppPreferences, scheduler: BackgroundRefreshScheduler = FakeBackgroundRefreshScheduler()): SettingsViewModel =
+        SettingsViewModel(prefs, LocationRepository(prefs), scheduler, loadThemes = { ALL_THEMES }, importTheme = { Result.success(Unit) }, deleteTheme = {})
 
     @Test
     fun `selectTheme persists the new theme id`() = runTest {
@@ -110,7 +121,7 @@ class SettingsViewModelTest {
         val prefs = AppPreferences(SettingsFakeDataStore())
         val locationRepo = LocationRepository(prefs)
         locationRepo.addLocation(Location("geo:1", 40.7128, -74.0060, "New York", null))
-        val vm = SettingsViewModel(prefs, locationRepo, loadThemes = { ALL_THEMES }, importTheme = { Result.success(Unit) }, deleteTheme = {})
+        val vm = SettingsViewModel(prefs, locationRepo, FakeBackgroundRefreshScheduler(), loadThemes = { ALL_THEMES }, importTheme = { Result.success(Unit) }, deleteTheme = {})
         testDispatcher.scheduler.advanceUntilIdle()
 
         assertEquals(true, vm.isNwsAvailable.value)
@@ -121,7 +132,7 @@ class SettingsViewModelTest {
         val prefs = AppPreferences(SettingsFakeDataStore())
         val locationRepo = LocationRepository(prefs)
         locationRepo.addLocation(Location("geo:1", 51.5072, -0.1276, "London", "UK"))
-        val vm = SettingsViewModel(prefs, locationRepo, loadThemes = { ALL_THEMES }, importTheme = { Result.success(Unit) }, deleteTheme = {})
+        val vm = SettingsViewModel(prefs, locationRepo, FakeBackgroundRefreshScheduler(), loadThemes = { ALL_THEMES }, importTheme = { Result.success(Unit) }, deleteTheme = {})
         testDispatcher.scheduler.advanceUntilIdle()
 
         assertEquals(false, vm.isNwsAvailable.value)
@@ -131,7 +142,7 @@ class SettingsViewModelTest {
     fun `availableThemes reflects loadThemes at construction time`() = runTest {
         val prefs = AppPreferences(SettingsFakeDataStore())
         val custom = ALL_THEMES.first().copy(id = "custom", name = "Custom", isImported = true, sourceFile = "custom.toml")
-        val vm = SettingsViewModel(prefs, LocationRepository(prefs), loadThemes = { ALL_THEMES + custom }, importTheme = { Result.success(Unit) }, deleteTheme = {})
+        val vm = SettingsViewModel(prefs, LocationRepository(prefs), FakeBackgroundRefreshScheduler(), loadThemes = { ALL_THEMES + custom }, importTheme = { Result.success(Unit) }, deleteTheme = {})
 
         assertTrue(vm.availableThemes.value.any { it.id == "custom" })
     }
@@ -143,6 +154,7 @@ class SettingsViewModelTest {
         val vm = SettingsViewModel(
             prefs,
             LocationRepository(prefs),
+            FakeBackgroundRefreshScheduler(),
             loadThemes = { themesAfterImport },
             importTheme = { _ ->
                 themesAfterImport = ALL_THEMES + ALL_THEMES.first().copy(id = "imported", name = "Imported", isImported = true, sourceFile = "imported.toml")
@@ -166,6 +178,7 @@ class SettingsViewModelTest {
         val vm = SettingsViewModel(
             prefs,
             LocationRepository(prefs),
+            FakeBackgroundRefreshScheduler(),
             loadThemes = { themes },
             importTheme = { Result.success(Unit) },
             deleteTheme = { file -> deletedFile = file; themes = ALL_THEMES },
@@ -175,5 +188,62 @@ class SettingsViewModelTest {
 
         assertEquals("imported.toml", deletedFile)
         assertTrue(vm.availableThemes.value.none { it.id == "imported" })
+    }
+
+    @Test
+    fun `backgroundRefreshEnabled and backgroundRefreshIntervalMinutes default to false and 60`() = runTest {
+        val prefs = AppPreferences(SettingsFakeDataStore())
+        val vm = buildVm(prefs)
+
+        assertEquals(false, vm.backgroundRefreshEnabled.value)
+        assertEquals(60, vm.backgroundRefreshIntervalMinutes.value)
+    }
+
+    @Test
+    fun `setBackgroundRefreshEnabled(true) persists the flag and schedules the current interval`() = runTest {
+        val prefs = AppPreferences(SettingsFakeDataStore())
+        val scheduler = FakeBackgroundRefreshScheduler()
+        val vm = buildVm(prefs, scheduler)
+
+        vm.setBackgroundRefreshEnabled(true)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(true, prefs.backgroundRefreshEnabled.first())
+        assertEquals(60, scheduler.scheduledIntervalMinutes)
+    }
+
+    @Test
+    fun `setBackgroundRefreshEnabled(false) persists the flag and cancels scheduled work`() = runTest {
+        val prefs = AppPreferences(SettingsFakeDataStore())
+        val scheduler = FakeBackgroundRefreshScheduler()
+        val vm = buildVm(prefs, scheduler)
+        vm.setBackgroundRefreshEnabled(true)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        vm.setBackgroundRefreshEnabled(false)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(false, prefs.backgroundRefreshEnabled.first())
+        assertEquals(1, scheduler.cancelCallCount)
+    }
+
+    @Test
+    fun `setBackgroundRefreshIntervalMinutes reschedules only when currently enabled`() = runTest {
+        val prefs = AppPreferences(SettingsFakeDataStore())
+        val scheduler = FakeBackgroundRefreshScheduler()
+        val vm = buildVm(prefs, scheduler)
+
+        vm.setBackgroundRefreshIntervalMinutes(180)
+        testDispatcher.scheduler.advanceUntilIdle()
+        assertEquals(180, prefs.backgroundRefreshIntervalMinutes.first())
+        assertEquals(null, scheduler.scheduledIntervalMinutes) // not enabled yet — must not schedule
+
+        vm.setBackgroundRefreshEnabled(true)
+        testDispatcher.scheduler.advanceUntilIdle()
+        vm.setBackgroundRefreshIntervalMinutes(30)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(30, prefs.backgroundRefreshIntervalMinutes.first())
+        assertEquals(30, scheduler.scheduledIntervalMinutes)
     }
 }

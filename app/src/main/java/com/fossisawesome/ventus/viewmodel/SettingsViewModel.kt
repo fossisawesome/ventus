@@ -6,10 +6,12 @@ import com.fossisawesome.ventus.data.isUsLocation
 import com.fossisawesome.ventus.data.repository.LocationRepository
 import com.fossisawesome.ventus.data.storage.AppPreferences
 import com.fossisawesome.ventus.ui.theme.AppTheme
+import com.fossisawesome.ventus.work.BackgroundRefreshScheduler
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -20,6 +22,7 @@ import kotlinx.coroutines.launch
 class SettingsViewModel(
     private val prefs: AppPreferences,
     private val locationRepository: LocationRepository,
+    private val scheduler: BackgroundRefreshScheduler,
     private val loadThemes: () -> List<AppTheme>,
     private val importTheme: (String) -> Result<Unit>,
     private val deleteTheme: (String) -> Unit,
@@ -29,6 +32,8 @@ class SettingsViewModel(
     val fontFamily: StateFlow<String> = prefs.fontFamily.stateIn(viewModelScope, SharingStarted.Eagerly, "Liberation Mono")
     val unitsMode: StateFlow<String> = prefs.unitsMode.stateIn(viewModelScope, SharingStarted.Eagerly, "auto")
     val weatherProvider: StateFlow<String> = prefs.weatherProvider.stateIn(viewModelScope, SharingStarted.Eagerly, "open-meteo")
+    val backgroundRefreshEnabled: StateFlow<Boolean> = prefs.backgroundRefreshEnabled.stateIn(viewModelScope, SharingStarted.Eagerly, false)
+    val backgroundRefreshIntervalMinutes: StateFlow<Int> = prefs.backgroundRefreshIntervalMinutes.stateIn(viewModelScope, SharingStarted.Eagerly, 60)
 
     // Drives whether the NWS option is selectable in Settings — NWS has no coverage outside the
     // US, gated on the CURRENTLY ACTIVE saved location's coordinates (see isUsLocation()); this
@@ -58,6 +63,20 @@ class SettingsViewModel(
 
     fun selectWeatherProvider(id: String) {
         viewModelScope.launch { prefs.setWeatherProvider(id) }
+    }
+
+    fun setBackgroundRefreshEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            prefs.setBackgroundRefreshEnabled(enabled)
+            if (enabled) scheduler.schedule(prefs.backgroundRefreshIntervalMinutes.first()) else scheduler.cancel()
+        }
+    }
+
+    fun setBackgroundRefreshIntervalMinutes(minutes: Int) {
+        viewModelScope.launch {
+            prefs.setBackgroundRefreshIntervalMinutes(minutes)
+            if (prefs.backgroundRefreshEnabled.first()) scheduler.schedule(minutes)
+        }
     }
 
     fun importThemeFile(uriString: String): Result<Unit> {
