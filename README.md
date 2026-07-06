@@ -18,6 +18,20 @@ themes, user-importable `.toml` themes, and a font picker — all via `Compositi
 - 19 built-in themes + `.toml` theme import
 - User-selectable font (Inter, monospace variants, system fonts, etc.)
 
+## Installation
+
+<a href="https://apps.obtainium.imranr.dev/redirect?r=obtainium://app/%7B%22id%22%3A%22com.fossisawesome.ventus%22%2C%22url%22%3A%22https%3A%2F%2Fgithub.com%2Ffossisawesome%2Fventus%22%2C%22author%22%3A%22fossisawesome%22%2C%22name%22%3A%22Ventus%22%2C%22preferredApkIndex%22%3A0%2C%22additionalSettings%22%3A%22%7B%5C%22includePrereleases%5C%22%3Afalse%2C%5C%22fallbackToOlderReleases%5C%22%3Atrue%2C%5C%22autoApkFilterByArch%5C%22%3Atrue%2C%5C%22versionDetection%5C%22%3Atrue%2C%5C%22sortMethodChoice%5C%22%3A%5C%22date%5C%22%7D%22%2C%22overrideSource%22%3Anull%7D"><img src="https://raw.githubusercontent.com/ImranR98/Obtainium/main/assets/graphics/badge_obtainium.png" alt="Get it on Obtainium" height="54"></a>
+
+Or download the latest `.apk` from the [releases page](https://github.com/fossisawesome/ventus/releases/latest) and install it manually:
+
+```bash
+# Via ADB (sideloading):
+adb install ventus_*.apk
+```
+
+Or transfer the APK to your device and open it with a file manager. You may need to enable
+**Install from unknown sources** in your device settings.
+
 ## Requirements
 
 - Android Studio (or the command-line Gradle wrapper) with an Android SDK installed
