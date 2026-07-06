@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 108 108" width="1024" height="1024">
+  <defs>
+    <linearGradient id="cloud4a2" x1="20%" y1="0%" x2="80%" y2="100%">
+      <stop offset="0%" stop-color="#a9e8ff"></stop>
+      <stop offset="55%" stop-color="#5ec8f0"></stop>
+      <stop offset="100%" stop-color="#1a5a80"></stop>
+    </linearGradient>
+  </defs>
+  <rect x="24" y="52" width="48" height="20" rx="10" fill="url(#cloud4a2)"></rect>
+  <circle cx="38" cy="48" r="14" fill="url(#cloud4a2)"></circle>
+  <circle cx="54" cy="44" r="17" fill="url(#cloud4a2)"></circle>
+  <circle cx="68" cy="50" r="12" fill="url(#cloud4a2)"></circle>
+  <ellipse cx="42" cy="40" rx="9" ry="5" fill="#ffffff" opacity="0.3"></ellipse>
+  <path d="M76,58 Q88,58 92,64" fill="none" stroke="#e8f0f7" stroke-width="5" stroke-linecap="round" opacity="0.8"></path>
+  <path d="M74,68 Q90,68 96,76" fill="none" stroke="#e8f0f7" stroke-width="5" stroke-linecap="round" opacity="0.5"></path>
+</svg>

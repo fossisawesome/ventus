@@ -1,5 +1,7 @@
 # Ventus
 
+<img src="assets/logo.svg" width="96" height="96" alt="Ventus logo">
+
 A native Kotlin/Jetpack Compose weather app for Android. Current conditions, hourly and 7-day
 forecast, powered by [Open-Meteo](https://open-meteo.com/) (no API key required).
 
