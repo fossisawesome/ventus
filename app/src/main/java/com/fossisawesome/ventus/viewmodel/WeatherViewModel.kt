@@ -107,7 +107,12 @@ class WeatherViewModel(
                 val result = weatherRepository.refresh(locationId, lat, lon, location.name, units)
                 _weatherStates.update { it + (locationId to result) }
                 if (location.isCurrentLocation) locationRepository.upsertCurrentLocationCoords(lat, lon)
-                if (locationId == activeLocationId.value) widgetUpdater.notifyActiveLocationChanged()
+                // refreshLocation() is only ever called (from within this ViewModel) for the
+                // location that's currently or about to be active — there's no "refresh a
+                // background location" path here (that's refreshAllLocations(), used by the
+                // background-refresh worker instead) — so every successful refresh here is by
+                // definition the one the widget should reflect.
+                widgetUpdater.notifyActiveLocationChanged()
             } finally {
                 refreshingIds.remove(locationId)
             }

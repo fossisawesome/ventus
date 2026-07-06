@@ -195,7 +195,7 @@ class WeatherViewModelTest {
     }
 
     @Test
-    fun `refreshing the active location notifies the widget updater`() = runTest {
+    fun `refreshing a location via the view model notifies the widget updater`() = runTest {
         val (vm, _, widgetUpdater) = buildVm(FakeLocationSource(LocationResult.PermissionDenied))
 
         vm.addLocationFromSearch(GeocodingResult(1, "Paris", 48.8566, 2.3522, "France", null))
@@ -205,16 +205,17 @@ class WeatherViewModelTest {
     }
 
     @Test
-    fun `refreshing a non-active location does NOT notify the widget updater`() = runTest {
+    fun `switching the active location via onPageSelected notifies the widget updater again`() = runTest {
         val (vm, _, widgetUpdater) = buildVm(FakeLocationSource(LocationResult.PermissionDenied))
         vm.addLocationFromSearch(GeocodingResult(1, "Paris", 48.8566, 2.3522, "France", null))
+        testDispatcher.scheduler.advanceUntilIdle()
         vm.addLocationFromSearch(GeocodingResult(2, "London", 51.5, -0.12, "UK", null))
         testDispatcher.scheduler.advanceUntilIdle()
-        val countAfterBothAdds = widgetUpdater.notifyCallCount // both were active in turn when added
+        val countAfterBothAdds = widgetUpdater.notifyCallCount
 
-        vm.onPageSelected("geo:1") // swipe back to Paris — geo:1 becomes active and refreshes
+        vm.onPageSelected("geo:1") // swipe back to Paris — refreshes and notifies again
         testDispatcher.scheduler.advanceUntilIdle()
 
-        assertEquals(countAfterBothAdds + 1, widgetUpdater.notifyCallCount) // geo:1's refresh WAS active, so it DOES notify
+        assertEquals(countAfterBothAdds + 1, widgetUpdater.notifyCallCount)
     }
 }
