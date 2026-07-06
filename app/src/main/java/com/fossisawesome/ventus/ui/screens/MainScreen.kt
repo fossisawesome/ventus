@@ -1,12 +1,19 @@
 package com.fossisawesome.ventus.ui.screens
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.DragHandle
 import androidx.compose.material.pullrefresh.PullRefreshIndicator
 import androidx.compose.material.pullrefresh.pullRefresh
 import androidx.compose.material.pullrefresh.rememberPullRefreshState
@@ -19,10 +26,14 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.fossisawesome.ventus.R
@@ -36,24 +47,50 @@ import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
 import kotlin.math.roundToInt
+import androidx.compose.runtime.snapshotFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
 
-@OptIn(androidx.compose.material.ExperimentalMaterialApi::class)
+@OptIn(androidx.compose.material.ExperimentalMaterialApi::class, ExperimentalFoundationApi::class)
 @Composable
 fun MainScreen(
-    state: WeatherUiState,
+    locations: List<Location>,
+    activeLocationId: String?,
+    weatherStates: Map<String, WeatherUiState>,
     searchResults: List<GeocodingResult>,
-    onRefresh: () -> Unit,
+    locationLimitMessage: String?,
+    onPageSelected: (String) -> Unit,
+    onRefresh: (String) -> Unit,
     onUseCurrentLocation: () -> Unit,
     onSearchQueryChange: (String) -> Unit,
-    onSelectSearchResult: (GeocodingResult) -> Unit,
+    onAddLocation: (GeocodingResult) -> Unit,
+    onRemoveLocation: (String) -> Unit,
+    onReorderLocations: (List<String>) -> Unit,
+    onSelectLocation: (String) -> Unit,
+    onDismissLocationLimitMessage: () -> Unit,
     onSettingsClick: () -> Unit,
 ) {
     val colors = LocalAppColors.current
     val font = LocalAppFontFamily.current
-    var query by remember { mutableStateOf("") }
-    var showSearch by remember { mutableStateOf(false) }
-    val isRefreshing = state is WeatherUiState.Loading
-    val pullState = rememberPullRefreshState(refreshing = isRefreshing, onRefresh = onRefresh)
+    var showPicker by remember { mutableStateOf(false) }
+
+    val pagerState = rememberPagerState(pageCount = { locations.size })
+
+    // Keeps the pager in sync with the persisted active location — e.g. a picker-row tap jumps to
+    // a non-adjacent page, or the first location arrives asynchronously after loadInitial().
+    LaunchedEffect(activeLocationId, locations) {
+        val targetIndex = locations.indexOfFirst { it.id == activeLocationId }
+        if (targetIndex >= 0 && targetIndex != pagerState.currentPage) {
+            pagerState.scrollToPage(targetIndex)
+        }
+    }
+
+    // Fires once the user's swipe settles on a new page (settledPage, not currentPage, so this
+    // doesn't fire on every drag frame mid-swipe).
+    LaunchedEffect(pagerState, locations) {
+        snapshotFlow { pagerState.settledPage }
+            .distinctUntilChanged()
+            .collect { index -> locations.getOrNull(index)?.let { onPageSelected(it.id) } }
+    }
 
     Box(modifier = Modifier.fillMaxSize().background(colors.bg)) {
         Column(modifier = Modifier.fillMaxSize()) {
@@ -64,7 +101,7 @@ fun MainScreen(
                     .padding(20.dp, 20.dp, 20.dp, 14.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                IconButton(onClick = { showSearch = !showSearch }, modifier = Modifier.weight(1f)) {
+                IconButton(onClick = { showPicker = !showPicker }, modifier = Modifier.weight(1f)) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
@@ -72,12 +109,13 @@ fun MainScreen(
                     ) {
                         AppIcon(R.drawable.ic_pin, null, tint = colors.accent, modifier = Modifier.size(20.dp))
                         Text(
-                            text = locationTitle(state),
+                            text = locations.getOrNull(pagerState.currentPage)?.name ?: "Ventus",
                             color = colors.text,
                             fontFamily = font,
                             fontSize = 19.sp,
                             fontWeight = FontWeight.Bold,
                             letterSpacing = (-0.2).sp,
+                            modifier = Modifier.weight(1f, fill = false),
                         )
                         AppIcon(R.drawable.ic_chevron_right, null, tint = colors.muted, modifier = Modifier.size(16.dp))
                     }
@@ -93,111 +131,256 @@ fun MainScreen(
                 }
             }
 
-            Box(modifier = Modifier.weight(1f).pullRefresh(pullState)) {
-                when (state) {
-                    is WeatherUiState.Loading -> LoadingBody()
-                    is WeatherUiState.NeedsLocation -> NeedsLocationBody(onUseCurrentLocation)
-                    is WeatherUiState.Error -> ErrorBody(state.message, onRefresh)
-                    is WeatherUiState.Success -> ForecastBody(state.snapshot, staleBanner = null)
-                    is WeatherUiState.Stale -> ForecastBody(state.snapshot, staleBanner = staleLabel(state.fetchedAt))
+            if (locations.isEmpty()) {
+                NeedsLocationBody(onUseCurrentLocation)
+            } else {
+                HorizontalPager(state = pagerState, modifier = Modifier.weight(1f)) { page ->
+                    val location = locations[page]
+                    val state = weatherStates[location.id] ?: WeatherUiState.Loading
+                    val isRefreshing = state is WeatherUiState.Loading
+                    val pullState = rememberPullRefreshState(refreshing = isRefreshing, onRefresh = { onRefresh(location.id) })
+
+                    Box(modifier = Modifier.fillMaxSize().pullRefresh(pullState)) {
+                        when (state) {
+                            is WeatherUiState.Loading -> LoadingBody()
+                            is WeatherUiState.NeedsLocation -> LoadingBody() // transient — a refresh is already in flight for this page
+                            is WeatherUiState.Error -> ErrorBody(state.message, onRetry = { onRefresh(location.id) })
+                            is WeatherUiState.Success -> ForecastBody(state.snapshot, staleBanner = null)
+                            is WeatherUiState.Stale -> ForecastBody(state.snapshot, staleBanner = staleLabel(state.fetchedAt))
+                        }
+                        PullRefreshIndicator(
+                            refreshing = isRefreshing,
+                            state = pullState,
+                            modifier = Modifier.align(Alignment.TopCenter),
+                            backgroundColor = colors.surface,
+                            contentColor = colors.accent,
+                        )
+                    }
                 }
-                PullRefreshIndicator(
-                    refreshing = isRefreshing,
-                    state = pullState,
-                    modifier = Modifier.align(Alignment.TopCenter),
-                    backgroundColor = colors.surface,
-                    contentColor = colors.accent,
+                PageDots(
+                    pageCount = locations.size,
+                    currentPage = pagerState.currentPage,
+                    modifier = Modifier.align(Alignment.CenterHorizontally).padding(bottom = 12.dp),
                 )
             }
         }
 
-        if (showSearch) {
-            Box(
+        if (showPicker) {
+            LocationPickerOverlay(
+                locations = locations,
+                searchResults = searchResults,
+                locationLimitMessage = locationLimitMessage,
+                onDismiss = { showPicker = false },
+                onSearchQueryChange = onSearchQueryChange,
+                onUseCurrentLocation = { onUseCurrentLocation(); showPicker = false },
+                onAddLocation = { result -> onAddLocation(result); showPicker = false },
+                onSelectLocation = { id -> onSelectLocation(id); showPicker = false },
+                onRemoveLocation = onRemoveLocation,
+                onReorderLocations = onReorderLocations,
+                onDismissLocationLimitMessage = onDismissLocationLimitMessage,
+            )
+        }
+    }
+}
+
+// Generalizes the old search-only overlay into a full location picker: search-to-add at the top,
+// then the user's saved locations below with drag-to-reorder (long-press the row, drag by the
+// handle) and a delete button per row. Tapping a saved row (not the handle/delete icon) selects it.
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun LocationPickerOverlay(
+    locations: List<Location>,
+    searchResults: List<GeocodingResult>,
+    locationLimitMessage: String?,
+    onDismiss: () -> Unit,
+    onSearchQueryChange: (String) -> Unit,
+    onUseCurrentLocation: () -> Unit,
+    onAddLocation: (GeocodingResult) -> Unit,
+    onSelectLocation: (String) -> Unit,
+    onRemoveLocation: (String) -> Unit,
+    onReorderLocations: (List<String>) -> Unit,
+    onDismissLocationLimitMessage: () -> Unit,
+) {
+    val colors = LocalAppColors.current
+    val font = LocalAppFontFamily.current
+    var query by remember { mutableStateOf("") }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black.copy(alpha = 0.72f))
+            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onDismiss),
+    ) {
+        Column(
+            modifier = Modifier
+                .padding(16.dp)
+                .offset(y = 56.dp)
+                .background(colors.surface, RoundedCornerShape(16.dp))
+                .border(1.dp, colors.border, RoundedCornerShape(16.dp))
+                .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {}
+                .padding(14.dp),
+        ) {
+            Row(
                 modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.72f))
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null,
-                    ) { showSearch = false },
+                    .fillMaxWidth()
+                    .background(colors.surface2, RoundedCornerShape(10.dp))
+                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                Column(
+                AppIcon(R.drawable.ic_search, null, tint = colors.muted, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(10.dp))
+                Box(modifier = Modifier.weight(1f)) {
+                    if (query.isBlank()) {
+                        Text("Search for a city…", color = colors.muted, fontFamily = font, fontSize = 14.sp)
+                    }
+                    BasicTextField(
+                        value = query,
+                        onValueChange = { query = it; onSearchQueryChange(it) },
+                        textStyle = TextStyle(color = colors.text, fontFamily = font, fontSize = 14.sp),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+            }
+
+            if (query.isBlank()) {
+                Row(
                     modifier = Modifier
-                        .padding(16.dp)
-                        .offset(y = 56.dp)
-                        .background(colors.surface, RoundedCornerShape(16.dp))
-                        .border(1.dp, colors.border, RoundedCornerShape(16.dp))
-                        .clickable(
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication = null,
-                        ) {}
-                        .padding(14.dp),
+                        .fillMaxWidth()
+                        .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onUseCurrentLocation)
+                        .padding(horizontal = 4.dp, vertical = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(colors.surface2, RoundedCornerShape(10.dp))
-                            .padding(horizontal = 12.dp, vertical = 10.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        AppIcon(R.drawable.ic_search, null, tint = colors.muted, modifier = Modifier.size(16.dp))
-                        Spacer(Modifier.width(10.dp))
-                        Box(modifier = Modifier.weight(1f)) {
-                            if (query.isBlank()) {
-                                Text("Search for a city…", color = colors.muted, fontFamily = font, fontSize = 14.sp)
-                            }
-                            BasicTextField(
-                                value = query,
-                                onValueChange = { query = it; onSearchQueryChange(it) },
-                                textStyle = TextStyle(color = colors.text, fontFamily = font, fontSize = 14.sp),
-                                modifier = Modifier.fillMaxWidth(),
+                    AppIcon(R.drawable.ic_gps, null, tint = colors.accent, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(10.dp))
+                    Text("Use current location", color = colors.accent, fontFamily = font, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                }
+                Divider()
+            }
+
+            if (query.isNotBlank()) {
+                Column(modifier = Modifier.padding(top = 6.dp)) {
+                    searchResults.forEach { result ->
+                        TextButton(onClick = { query = ""; onAddLocation(result) }) {
+                            Text(
+                                text = listOfNotNull(result.name, result.country).joinToString(", "),
+                                color = colors.text,
+                                fontFamily = font,
+                                fontSize = 14.sp,
                             )
                         }
                     }
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable(
-                                interactionSource = remember { MutableInteractionSource() },
-                                indication = null,
-                            ) {
-                                onUseCurrentLocation()
-                                showSearch = false
-                            }
-                            .padding(horizontal = 4.dp, vertical = 14.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        AppIcon(R.drawable.ic_gps, null, tint = colors.accent, modifier = Modifier.size(18.dp))
-                        Spacer(Modifier.width(10.dp))
-                        Text("Use current location", color = colors.accent, fontFamily = font, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                    }
-                    Divider()
-                    Column(modifier = Modifier.padding(top = 6.dp)) {
-                        searchResults.forEach { result ->
-                            TextButton(onClick = {
-                                showSearch = false
-                                query = ""
-                                onSelectSearchResult(result)
-                            }) {
-                                Text(
-                                    text = listOfNotNull(result.name, result.country).joinToString(", "),
-                                    color = colors.text,
-                                    fontFamily = font,
-                                    fontSize = 14.sp,
-                                )
-                            }
-                        }
-                    }
                 }
+            } else {
+                if (locationLimitMessage != null) {
+                    Text(
+                        locationLimitMessage,
+                        color = colors.error,
+                        fontFamily = font,
+                        fontSize = 12.sp,
+                        modifier = Modifier.padding(vertical = 8.dp).clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                        ) { onDismissLocationLimitMessage() },
+                    )
+                }
+                Text(
+                    "SAVED LOCATIONS".uppercase(),
+                    color = colors.muted,
+                    fontFamily = font,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 0.6.sp,
+                    modifier = Modifier.padding(top = 6.dp, bottom = 4.dp),
+                )
+                ReorderableLocationList(
+                    locations = locations,
+                    onSelect = onSelectLocation,
+                    onRemove = onRemoveLocation,
+                    onReorder = onReorderLocations,
+                )
             }
         }
     }
 }
 
-private fun locationTitle(state: WeatherUiState): String = when (state) {
-    is WeatherUiState.Success -> state.snapshot.locationName
-    is WeatherUiState.Stale -> state.snapshot.locationName
-    else -> "Ventus"
+// Manual long-press-drag reorder — no third-party reorder library exists in this project's
+// dependencies, so item order is swapped in-place as the dragged row's midpoint crosses a
+// neighbor's, using each row's measured height (via onGloballyPositioned) as the swap threshold.
+@Composable
+private fun ReorderableLocationList(
+    locations: List<Location>,
+    onSelect: (String) -> Unit,
+    onRemove: (String) -> Unit,
+    onReorder: (List<String>) -> Unit,
+) {
+    val colors = LocalAppColors.current
+    val font = LocalAppFontFamily.current
+
+    var orderedIds by remember(locations) { mutableStateOf(locations.map { it.id }) }
+    val byId = locations.associateBy { it.id }
+    var draggingId by remember { mutableStateOf<String?>(null) }
+    var dragOffsetY by remember { mutableStateOf(0f) }
+    val rowHeights = remember { mutableStateMapOf<String, Float>() }
+
+    Column(modifier = Modifier.fillMaxWidth()) {
+        orderedIds.forEachIndexed { index, id ->
+            val location = byId[id] ?: return@forEachIndexed
+            val isDragging = draggingId == id
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .onGloballyPositioned { rowHeights[id] = it.size.height.toFloat() }
+                    .offset { IntOffset(0, if (isDragging) dragOffsetY.toInt() else 0) }
+                    .background(if (isDragging) colors.surface2 else Color.Transparent, RoundedCornerShape(8.dp))
+                    .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { onSelect(id) }
+                    .padding(horizontal = 4.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    location.name,
+                    color = colors.text,
+                    fontFamily = font,
+                    fontSize = 14.sp,
+                    modifier = Modifier.weight(1f),
+                )
+                IconButton(onClick = { onRemove(id) }, modifier = Modifier.size(28.dp)) {
+                    AppIcon(Icons.Filled.Close, "Remove", tint = colors.muted, modifier = Modifier.size(16.dp))
+                }
+                Box(
+                    modifier = Modifier
+                        .size(28.dp)
+                        .pointerInput(id) {
+                            detectDragGesturesAfterLongPress(
+                                onDragStart = { draggingId = id; dragOffsetY = 0f },
+                                onDragEnd = {
+                                    draggingId = null
+                                    dragOffsetY = 0f
+                                    onReorder(orderedIds)
+                                },
+                                onDragCancel = { draggingId = null; dragOffsetY = 0f },
+                                onDrag = { change, dragAmount ->
+                                    change.consume()
+                                    dragOffsetY += dragAmount.y
+                                    val rowHeight = rowHeights[id] ?: return@detectDragGesturesAfterLongPress
+                                    val currentIndex = orderedIds.indexOf(id)
+                                    if (dragOffsetY > rowHeight / 2 && currentIndex < orderedIds.lastIndex) {
+                                        orderedIds = orderedIds.toMutableList().apply { add(currentIndex + 1, removeAt(currentIndex)) }
+                                        dragOffsetY -= rowHeight
+                                    } else if (dragOffsetY < -rowHeight / 2 && currentIndex > 0) {
+                                        orderedIds = orderedIds.toMutableList().apply { add(currentIndex - 1, removeAt(currentIndex)) }
+                                        dragOffsetY += rowHeight
+                                    }
+                                },
+                            )
+                        },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    AppIcon(Icons.Filled.DragHandle, "Reorder", tint = colors.muted, modifier = Modifier.size(18.dp))
+                }
+            }
+            if (index < orderedIds.lastIndex) Divider()
+        }
+    }
 }
 
 private fun staleLabel(fetchedAt: Long): String {
