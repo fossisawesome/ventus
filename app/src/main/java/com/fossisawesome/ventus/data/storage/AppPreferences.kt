@@ -43,6 +43,9 @@ class AppPreferences(private val store: DataStore<Preferences>) {
 
         const val MAX_SAVED_LOCATIONS = 10
         const val CURRENT_LOCATION_ID = "current-location"
+
+        val BACKGROUND_REFRESH_ENABLED = booleanPreferencesKey("background_refresh_enabled")
+        val BACKGROUND_REFRESH_INTERVAL_MINUTES = intPreferencesKey("background_refresh_interval_minutes")
     }
 
     val themeId: Flow<String> = store.data.map { it[THEME_ID] ?: "ventus" }
@@ -57,6 +60,8 @@ class AppPreferences(private val store: DataStore<Preferences>) {
     val savedLocationsJson: Flow<String?> = store.data.map { it[SAVED_LOCATIONS_JSON] }
     val activeLocationId: Flow<String?> = store.data.map { it[ACTIVE_LOCATION_ID] }
     val cachedWeatherByLocationJson: Flow<String?> = store.data.map { it[CACHED_WEATHER_BY_LOCATION_JSON] }
+    val backgroundRefreshEnabled: Flow<Boolean> = store.data.map { it[BACKGROUND_REFRESH_ENABLED] ?: false }
+    val backgroundRefreshIntervalMinutes: Flow<Int> = store.data.map { it[BACKGROUND_REFRESH_INTERVAL_MINUTES] ?: 60 }
 
     suspend fun setThemeId(id: String) = store.edit { it[THEME_ID] = id }
     suspend fun setFontFamily(name: String) = store.edit { it[FONT_FAMILY] = name }
@@ -90,4 +95,7 @@ class AppPreferences(private val store: DataStore<Preferences>) {
         it.remove(CACHED_WEATHER_JSON)
         it.remove(CACHED_WEATHER_FETCHED_AT)
     }
+
+    suspend fun setBackgroundRefreshEnabled(enabled: Boolean) = store.edit { it[BACKGROUND_REFRESH_ENABLED] = enabled }
+    suspend fun setBackgroundRefreshIntervalMinutes(minutes: Int) = store.edit { it[BACKGROUND_REFRESH_INTERVAL_MINUTES] = minutes }
 }
