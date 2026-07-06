@@ -417,3 +417,42 @@ fun RangeBar(
         )
     }
 }
+
+// Swipeable-pager position indicator — one dot per saved location, the active one widened and
+// tinted accent. No Material3 PagerIndicator equivalent exists in this codebase, so this is a
+// from-scratch primitive matching the rest of this file's plain Box/Row + CompositionLocal style.
+@Composable
+fun PageDots(
+    pageCount: Int,
+    currentPage: Int,
+    modifier: Modifier = Modifier,
+) {
+    if (pageCount <= 1) return
+    val colors = LocalAppColors.current
+    Row(
+        modifier = modifier,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        repeat(pageCount) { index ->
+            val isActive = index == currentPage
+            val width by animateFloatAsState(
+                targetValue = if (isActive) 18f else 6f,
+                animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMedium),
+                label = "dotWidth",
+            )
+            val color by animateColorAsState(
+                targetValue = if (isActive) colors.accent else colors.border,
+                animationSpec = tween(150),
+                label = "dotColor",
+            )
+            Box(
+                modifier = Modifier
+                    .height(6.dp)
+                    .width(width.dp)
+                    .clip(RoundedCornerShape(3.dp))
+                    .background(color),
+            )
+        }
+    }
+}
