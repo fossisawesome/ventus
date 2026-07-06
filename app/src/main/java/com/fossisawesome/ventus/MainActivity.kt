@@ -55,13 +55,14 @@ class MainActivity : ComponentActivity() {
         setContent {
             val weatherViewModel: WeatherViewModel = viewModel(
                 factory = viewModelFactory {
-                    WeatherViewModel(app.weatherRepository, app.locationSource, app.geocodingApi, app.prefs, countryCode)
+                    WeatherViewModel(app.weatherRepository, app.locationRepository, app.locationSource, app.geocodingApi, app.prefs, countryCode)
                 }
             )
             val settingsViewModel: SettingsViewModel = viewModel(
                 factory = viewModelFactory {
                     SettingsViewModel(
                         prefs = app.prefs,
+                        locationRepository = app.locationRepository,
                         loadThemes = { allThemes(applicationContext) },
                         importTheme = { uriString -> importThemeFromUri(applicationContext, Uri.parse(uriString)) },
                         deleteTheme = { file -> deleteImportedTheme(applicationContext, file) },
