@@ -60,65 +60,91 @@ private fun sampleSnapshot(name: String) = WeatherSnapshot(
 class WeatherRepositoryTest {
 
     @Test
-    fun `refresh returns Success and caches on API success`() = runBlocking {
+    fun `refresh returns Success and caches under the given location id`() = runBlocking {
         val prefs = AppPreferences(FakeDataStore())
         val repo = WeatherRepository(FakeWeatherApi("open-meteo"), FakeWeatherApi("nws"), FakeAirQualityApi(), prefs)
 
-        val state = repo.refresh(40.7128, -74.0060, "New York", Units.METRIC)
+        val state = repo.refresh("loc-ny", 40.7128, -74.0060, "New York", Units.METRIC)
 
         assertTrue(state is WeatherUiState.Success)
         val snapshot = (state as WeatherUiState.Success).snapshot
         assertEquals("New York", snapshot.locationName)
-        assertEquals(22.5, snapshot.currentTempC, 0.001)
 
-        val cachedJson = prefs.cachedWeatherJson.firstOrNull()
-        assertTrue(cachedJson != null && cachedJson.contains("New York"))
+        val cachedJson = prefs.cachedWeatherByLocationJson.firstOrNull()
+        assertTrue(cachedJson != null && cachedJson.contains("loc-ny") && cachedJson.contains("New York"))
     }
 
     @Test
-    fun `refresh falls back to cache as Stale on API failure`() = runBlocking {
+    fun `refresh falls back to that location's own cache as Stale on API failure`() = runBlocking {
         val prefs = AppPreferences(FakeDataStore())
-        prefs.setCachedWeather(Gson().toJson(sampleSnapshot("Cached City")), fetchedAt = 1000L)
+        val repo = WeatherRepository(FakeWeatherApi("open-meteo"), FakeWeatherApi("nws"), FakeAirQualityApi(), prefs)
+        repo.refresh("loc-a", 1.0, 1.0, "Cached City", Units.METRIC) // seeds the cache for loc-a
 
-        val repo = WeatherRepository(FakeWeatherApi("open-meteo", shouldFail = true), FakeWeatherApi("nws"), FakeAirQualityApi(), prefs)
-        val state = repo.refresh(0.0, 0.0, "New Location", Units.METRIC)
+        val failing = WeatherRepository(FakeWeatherApi("open-meteo", shouldFail = true), FakeWeatherApi("nws"), FakeAirQualityApi(), prefs)
+        val state = failing.refresh("loc-a", 1.0, 1.0, "Cached City", Units.METRIC)
 
         assertTrue(state is WeatherUiState.Stale)
-        val stale = state as WeatherUiState.Stale
-        assertEquals("Cached City", stale.snapshot.locationName)
-        assertEquals(1000L, stale.fetchedAt)
+        assertEquals("Cached City", (state as WeatherUiState.Stale).snapshot.locationName)
     }
 
     @Test
-    fun `refresh returns Error on API failure with no cache`() = runBlocking {
+    fun `refresh returns Error, not another location's stale cache, on a cache miss for this location`() = runBlocking {
+        // Regression test for the old single-slot cache bug: a fetch failure for "loc-b" must
+        // NEVER resolve to "loc-a"'s cached snapshot just because it's the only thing cached.
         val prefs = AppPreferences(FakeDataStore())
-        val repo = WeatherRepository(FakeWeatherApi("open-meteo", shouldFail = true), FakeWeatherApi("nws"), FakeAirQualityApi(), prefs)
+        val seed = WeatherRepository(FakeWeatherApi("open-meteo"), FakeWeatherApi("nws"), FakeAirQualityApi(), prefs)
+        seed.refresh("loc-a", 1.0, 1.0, "Location A", Units.METRIC)
 
-        val state = repo.refresh(0.0, 0.0, "Nowhere", Units.METRIC)
+        val failing = WeatherRepository(FakeWeatherApi("open-meteo", shouldFail = true), FakeWeatherApi("nws"), FakeAirQualityApi(), prefs)
+        val state = failing.refresh("loc-b", 2.0, 2.0, "Location B", Units.METRIC)
 
         assertTrue(state is WeatherUiState.Error)
     }
 
     @Test
-    fun `loadCached returns Stale when a cache entry exists`() = runBlocking {
+    fun `refresh keeps independent caches per location`() = runBlocking {
         val prefs = AppPreferences(FakeDataStore())
-        prefs.setCachedWeather(Gson().toJson(sampleSnapshot("Cached City")), fetchedAt = 2000L)
-
         val repo = WeatherRepository(FakeWeatherApi("open-meteo"), FakeWeatherApi("nws"), FakeAirQualityApi(), prefs)
-        val state = repo.loadCached()
+        repo.refresh("loc-a", 1.0, 1.0, "Location A", Units.METRIC)
+        repo.refresh("loc-b", 2.0, 2.0, "Location B", Units.METRIC)
 
-        assertTrue(state is WeatherUiState.Stale)
-        assertEquals(2000L, (state as WeatherUiState.Stale).fetchedAt)
+        assertTrue((repo.loadCached("loc-a") as WeatherUiState.Stale).snapshot.locationName == "Location A")
+        assertTrue((repo.loadCached("loc-b") as WeatherUiState.Stale).snapshot.locationName == "Location B")
     }
 
     @Test
-    fun `loadCached returns NeedsLocation when no cache exists`() = runBlocking {
+    fun `loadCached returns NeedsLocation when no cache exists for that id`() = runBlocking {
         val prefs = AppPreferences(FakeDataStore())
         val repo = WeatherRepository(FakeWeatherApi("open-meteo"), FakeWeatherApi("nws"), FakeAirQualityApi(), prefs)
 
-        val state = repo.loadCached()
+        assertTrue(repo.loadCached("nowhere") is WeatherUiState.NeedsLocation)
+    }
 
-        assertTrue(state is WeatherUiState.NeedsLocation)
+    @Test
+    fun `evictCache removes only the given location's entry`() = runBlocking {
+        val prefs = AppPreferences(FakeDataStore())
+        val repo = WeatherRepository(FakeWeatherApi("open-meteo"), FakeWeatherApi("nws"), FakeAirQualityApi(), prefs)
+        repo.refresh("loc-a", 1.0, 1.0, "Location A", Units.METRIC)
+        repo.refresh("loc-b", 2.0, 2.0, "Location B", Units.METRIC)
+
+        repo.evictCache("loc-a")
+
+        assertTrue(repo.loadCached("loc-a") is WeatherUiState.NeedsLocation)
+        assertTrue(repo.loadCached("loc-b") is WeatherUiState.Stale)
+    }
+
+    @Test
+    fun `migrateLegacyCache copies the old single-slot cache into the new keyed map`() = runBlocking {
+        val prefs = AppPreferences(FakeDataStore())
+        prefs.setCachedWeather(Gson().toJson(sampleSnapshot("Legacy City")), fetchedAt = 1234L)
+        val repo = WeatherRepository(FakeWeatherApi("open-meteo"), FakeWeatherApi("nws"), FakeAirQualityApi(), prefs)
+
+        repo.migrateLegacyCache("migrated-id")
+
+        val state = repo.loadCached("migrated-id")
+        assertTrue(state is WeatherUiState.Stale)
+        assertEquals("Legacy City", (state as WeatherUiState.Stale).snapshot.locationName)
+        assertEquals(1234L, state.fetchedAt)
     }
 
     @Test
@@ -129,24 +155,27 @@ class WeatherRepositoryTest {
         val nws = FakeWeatherApi("nws")
         val repo = WeatherRepository(openMeteo, nws, FakeAirQualityApi(), prefs)
 
-        repo.refresh(40.7128, -74.0060, "New York", Units.METRIC) // US coordinates
+        repo.refresh("loc-ny", 40.7128, -74.0060, "New York", Units.METRIC) // US coordinates
 
         assertEquals(0, openMeteo.callCount)
         assertEquals(1, nws.callCount)
     }
 
     @Test
-    fun `refresh falls back to open-meteo and resets preference when nws selected outside the US`() = runBlocking {
+    fun `refresh falls back to open-meteo for this call WITHOUT resetting the stored preference`() = runBlocking {
+        // Behavior change from the single-location version: with multiple saved locations
+        // possibly spanning US and non-US, a non-US page's refresh must not silently disable
+        // NWS for the user's OTHER, US-based pages by resetting a single global preference.
         val prefs = AppPreferences(FakeDataStore())
         prefs.setWeatherProvider("nws")
         val openMeteo = FakeWeatherApi("open-meteo")
         val nws = FakeWeatherApi("nws")
         val repo = WeatherRepository(openMeteo, nws, FakeAirQualityApi(), prefs)
 
-        repo.refresh(51.5072, -0.1276, "London", Units.METRIC) // non-US coordinates
+        repo.refresh("loc-london", 51.5072, -0.1276, "London", Units.METRIC) // non-US coordinates
 
         assertEquals(1, openMeteo.callCount)
         assertEquals(0, nws.callCount)
-        assertEquals("open-meteo", prefs.weatherProvider.firstOrNull())
+        assertEquals("nws", prefs.weatherProvider.firstOrNull()) // unchanged
     }
 }
