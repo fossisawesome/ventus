@@ -456,3 +456,54 @@ fun PageDots(
         }
     }
 }
+
+// Discrete-stop slider — a row of tap targets on a track, one per value in `steps`, the selected
+// stop widened and tinted accent (visually consistent with PageDots' active-dot treatment). Not a
+// draggable-thumb slider: every use of this control in the app (background-refresh interval) has a
+// small fixed set of valid values, so a row of taps is simpler and more precise than a continuous
+// drag gesture would be.
+@Composable
+fun Slider(
+    steps: List<Int>,
+    selectedValue: Int,
+    onValueSelected: (Int) -> Unit,
+    modifier: Modifier = Modifier,
+    labelForStep: (Int) -> String = { it.toString() },
+) {
+    val colors = LocalAppColors.current
+    val font = LocalAppFontFamily.current
+    Column(modifier = modifier) {
+        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            steps.forEachIndexed { index, step ->
+                val isSelected = step == selectedValue
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(4.dp)
+                        .background(if (isSelected || index == 0) colors.accent else colors.border),
+                )
+                Box(
+                    modifier = Modifier
+                        .size(if (isSelected) 16.dp else 10.dp)
+                        .clip(CircleShape)
+                        .background(if (isSelected) colors.accent else colors.border)
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                        ) { onValueSelected(step) },
+                )
+            }
+        }
+        Spacer(Modifier.height(6.dp))
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            steps.forEach { step ->
+                Text(
+                    labelForStep(step),
+                    color = if (step == selectedValue) colors.accent else colors.muted,
+                    fontFamily = font,
+                    fontSize = 11.sp,
+                )
+            }
+        }
+    }
+}
