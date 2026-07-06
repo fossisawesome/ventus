@@ -55,7 +55,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             val weatherViewModel: WeatherViewModel = viewModel(
                 factory = viewModelFactory {
-                    WeatherViewModel(app.weatherRepository, app.locationRepository, app.locationSource, app.geocodingApi, app.prefs, countryCode)
+                    WeatherViewModel(app.weatherRepository, app.locationRepository, app.locationSource, app.geocodingApi, app.prefs, countryCode, app.widgetUpdater)
                 }
             )
             val settingsViewModel: SettingsViewModel = viewModel(

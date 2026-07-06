@@ -19,12 +19,14 @@ class WeatherRefreshWorker(
     private val locationRepository: LocationRepository,
     private val locationSource: LocationSource,
     private val prefs: AppPreferences,
+    private val widgetUpdater: WidgetUpdater,
 ) : CoroutineWorker(context, params) {
 
     override suspend fun doWork(): Result {
         val countryCode = applicationContext.resources.configuration.locales[0].country
             .ifBlank { Locale.getDefault().country }
         refreshAllLocations(weatherRepository, locationRepository, locationSource, prefs, countryCode)
+        widgetUpdater.notifyActiveLocationChanged()
         // Per-location failures are already absorbed into Stale/Error cache states by
         // WeatherRepository.refresh() — there's nothing left for WorkManager's own retry
         // mechanism to usefully retry, so this always reports success.

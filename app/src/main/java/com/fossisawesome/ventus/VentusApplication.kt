@@ -13,6 +13,7 @@ import com.fossisawesome.ventus.data.storage.AppPreferences
 import com.fossisawesome.ventus.work.BackgroundRefreshScheduler
 import com.fossisawesome.ventus.work.VentusWorkerFactory
 import com.fossisawesome.ventus.work.WorkManagerBackgroundRefreshScheduler
+import com.fossisawesome.ventus.widget.GlanceWidgetUpdater
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -30,6 +31,7 @@ class VentusApplication : Application(), Configuration.Provider {
     val locationRepository by lazy { LocationRepository(prefs) }
     val locationSource by lazy { FusedLocationSource(this) }
     val backgroundRefreshScheduler: BackgroundRefreshScheduler by lazy { WorkManagerBackgroundRefreshScheduler(this) }
+    val widgetUpdater by lazy { GlanceWidgetUpdater(this) }
 
     // WorkManager needs a WorkerFactory that knows how to construct WeatherRefreshWorker with its
     // repository/prefs dependencies (manual DI, no Hilt) — implementing Configuration.Provider
@@ -38,7 +40,7 @@ class VentusApplication : Application(), Configuration.Provider {
     // manifest — see AndroidManifest.xml).
     override val workManagerConfiguration: Configuration
         get() = Configuration.Builder()
-            .setWorkerFactory(VentusWorkerFactory(weatherRepository, locationRepository, locationSource, prefs))
+            .setWorkerFactory(VentusWorkerFactory(weatherRepository, locationRepository, locationSource, prefs, widgetUpdater))
             .build()
 
     private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)

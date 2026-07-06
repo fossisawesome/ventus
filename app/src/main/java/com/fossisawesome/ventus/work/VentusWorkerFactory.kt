@@ -17,6 +17,7 @@ class VentusWorkerFactory(
     private val locationRepository: LocationRepository,
     private val locationSource: LocationSource,
     private val prefs: AppPreferences,
+    private val widgetUpdater: WidgetUpdater,
 ) : WorkerFactory() {
     override fun createWorker(
         appContext: Context,
@@ -24,7 +25,7 @@ class VentusWorkerFactory(
         workerParameters: WorkerParameters,
     ): ListenableWorker? = when (workerClassName) {
         WeatherRefreshWorker::class.java.name ->
-            WeatherRefreshWorker(appContext, workerParameters, weatherRepository, locationRepository, locationSource, prefs)
+            WeatherRefreshWorker(appContext, workerParameters, weatherRepository, locationRepository, locationSource, prefs, widgetUpdater)
         else -> null
     }
 }
