@@ -31,6 +31,16 @@ class UnitConversionsTest {
     }
 
     @Test
+    fun `tempValue rounds celsius directly when not imperial`() {
+        assertEquals(23, tempValue(22.5, isImperial = false))
+    }
+
+    @Test
+    fun `tempValue converts to fahrenheit and rounds when imperial`() {
+        assertEquals(73, tempValue(22.6, isImperial = true)) // 22.6C = 72.68F, rounds to 73
+    }
+
+    @Test
     fun `resolves imperial for US`() {
         assertEquals(Units.IMPERIAL, resolveUnits("auto", "US"))
     }

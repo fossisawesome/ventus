@@ -2,6 +2,7 @@ package com.fossisawesome.ventus.data
 
 import androidx.annotation.DrawableRes
 import com.fossisawesome.ventus.R
+import kotlin.math.roundToInt
 
 enum class Units { METRIC, IMPERIAL }
 
@@ -20,6 +21,11 @@ fun kmhToMph(kmh: Double): Double = kmh / 1.609344
 fun mmToInches(mm: Double): Double = mm / 25.4
 fun mphToKmh(mph: Double): Double = mph * 1.609344
 fun inchesToMm(inches: Double): Double = inches * 25.4
+
+fun tempValue(c: Double, isImperial: Boolean): Int {
+    val v = if (isImperial) celsiusToFahrenheit(c) else c
+    return v.roundToInt()
+}
 
 // Rough bounding boxes for NWS coverage (CONUS, Alaska, Hawaii, Puerto Rico/USVI) — good enough
 // to gate the NWS provider toggle without a persisted per-location country code (the app only

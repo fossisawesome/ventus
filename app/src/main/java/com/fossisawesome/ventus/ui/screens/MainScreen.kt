@@ -632,11 +632,6 @@ private fun ForecastBody(snapshot: WeatherSnapshot, staleBanner: String?) {
     }
 }
 
-private fun tempValue(c: Double, isImperial: Boolean): Int {
-    val v = if (isImperial) celsiusToFahrenheit(c) else c
-    return v.roundToInt()
-}
-
 // Epoch values are built by isoLocalTimeToEpochSeconds(), which mislabels the API's
 // location-local wall-clock time as UTC. Formatting must use UTC here to cancel that
 // mislabeling out and recover the correct location-local time, regardless of device timezone.
