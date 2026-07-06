@@ -15,6 +15,7 @@ import com.fossisawesome.ventus.data.repository.LocationRepository
 import com.fossisawesome.ventus.data.repository.WeatherRepository
 import com.fossisawesome.ventus.data.resolveUnits
 import com.fossisawesome.ventus.data.storage.AppPreferences
+import com.fossisawesome.ventus.work.WidgetUpdater
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -32,6 +33,7 @@ class WeatherViewModel(
     private val geocodingApi: GeocodingApi,
     private val prefs: AppPreferences,
     private val countryCode: String,
+    private val widgetUpdater: WidgetUpdater,
 ) : ViewModel() {
 
     // Both flow directly off DataStore (via LocationRepository) — mutations below only ever write
@@ -105,6 +107,7 @@ class WeatherViewModel(
                 val result = weatherRepository.refresh(locationId, lat, lon, location.name, units)
                 _weatherStates.update { it + (locationId to result) }
                 if (location.isCurrentLocation) locationRepository.upsertCurrentLocationCoords(lat, lon)
+                if (locationId == activeLocationId.value) widgetUpdater.notifyActiveLocationChanged()
             } finally {
                 refreshingIds.remove(locationId)
             }

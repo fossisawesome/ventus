@@ -13,6 +13,7 @@ import com.fossisawesome.ventus.data.model.*
 import com.fossisawesome.ventus.data.repository.LocationRepository
 import com.fossisawesome.ventus.data.repository.WeatherRepository
 import com.fossisawesome.ventus.data.storage.AppPreferences
+import com.fossisawesome.ventus.work.WidgetUpdater
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -65,6 +66,12 @@ private class FakeLocationSource(private val result: LocationResult) : LocationS
     override suspend fun getCurrentLocation(): LocationResult = result
 }
 
+private class FakeWidgetUpdater : WidgetUpdater {
+    var notifyCallCount = 0
+        private set
+    override suspend fun notifyActiveLocationChanged() { notifyCallCount++ }
+}
+
 @OptIn(ExperimentalCoroutinesApi::class)
 class WeatherViewModelTest {
 
@@ -76,12 +83,13 @@ class WeatherViewModelTest {
     @After
     fun tearDown() { Dispatchers.resetMain() }
 
-    private fun buildVm(locationSource: LocationSource, geocodingApi: GeocodingApi = FakeGeocodingApi()): Pair<WeatherViewModel, AppPreferences> {
+    private fun buildVm(locationSource: LocationSource, geocodingApi: GeocodingApi = FakeGeocodingApi()): Triple<WeatherViewModel, AppPreferences, FakeWidgetUpdater> {
         val prefs = AppPreferences(FakeDataStore())
         val weatherRepo = WeatherRepository(FakeWeatherApi(), FakeWeatherApi(), FakeAirQualityApi(), prefs)
         val locationRepo = LocationRepository(prefs)
-        val vm = WeatherViewModel(weatherRepo, locationRepo, locationSource, geocodingApi, prefs, "US")
-        return vm to prefs
+        val widgetUpdater = FakeWidgetUpdater()
+        val vm = WeatherViewModel(weatherRepo, locationRepo, locationSource, geocodingApi, prefs, "US", widgetUpdater)
+        return Triple(vm, prefs, widgetUpdater)
     }
 
     @Test
@@ -184,5 +192,29 @@ class WeatherViewModelTest {
         testDispatcher.scheduler.advanceUntilIdle()
 
         assertEquals(fakeResults, vm.searchResults.value)
+    }
+
+    @Test
+    fun `refreshing the active location notifies the widget updater`() = runTest {
+        val (vm, _, widgetUpdater) = buildVm(FakeLocationSource(LocationResult.PermissionDenied))
+
+        vm.addLocationFromSearch(GeocodingResult(1, "Paris", 48.8566, 2.3522, "France", null))
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(1, widgetUpdater.notifyCallCount)
+    }
+
+    @Test
+    fun `refreshing a non-active location does NOT notify the widget updater`() = runTest {
+        val (vm, _, widgetUpdater) = buildVm(FakeLocationSource(LocationResult.PermissionDenied))
+        vm.addLocationFromSearch(GeocodingResult(1, "Paris", 48.8566, 2.3522, "France", null))
+        vm.addLocationFromSearch(GeocodingResult(2, "London", 51.5, -0.12, "UK", null))
+        testDispatcher.scheduler.advanceUntilIdle()
+        val countAfterBothAdds = widgetUpdater.notifyCallCount // both were active in turn when added
+
+        vm.onPageSelected("geo:1") // swipe back to Paris — geo:1 becomes active and refreshes
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(countAfterBothAdds + 1, widgetUpdater.notifyCallCount) // geo:1's refresh WAS active, so it DOES notify
     }
 }
