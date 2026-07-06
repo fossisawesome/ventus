@@ -18,8 +18,11 @@ fun AppNavGraph(
     onImportTheme: () -> Unit,
 ) {
     val navController = rememberNavController()
-    val weatherState by weatherViewModel.state.collectAsStateWithLifecycle()
+    val locations by weatherViewModel.locations.collectAsStateWithLifecycle()
+    val activeLocationId by weatherViewModel.activeLocationId.collectAsStateWithLifecycle()
+    val weatherStates by weatherViewModel.weatherStates.collectAsStateWithLifecycle()
     val searchResults by weatherViewModel.searchResults.collectAsStateWithLifecycle()
+    val locationLimitMessage by weatherViewModel.locationLimitMessage.collectAsStateWithLifecycle()
     val themeId by settingsViewModel.themeId.collectAsStateWithLifecycle()
     val fontFamily by settingsViewModel.fontFamily.collectAsStateWithLifecycle()
     val unitsMode by settingsViewModel.unitsMode.collectAsStateWithLifecycle()
@@ -30,12 +33,20 @@ fun AppNavGraph(
     NavHost(navController = navController, startDestination = "main") {
         composable("main") {
             MainScreen(
-                state = weatherState,
+                locations = locations,
+                activeLocationId = activeLocationId,
+                weatherStates = weatherStates,
                 searchResults = searchResults,
-                onRefresh = { weatherViewModel.refresh() },
+                locationLimitMessage = locationLimitMessage,
+                onPageSelected = { weatherViewModel.onPageSelected(it) },
+                onRefresh = { weatherViewModel.onPageSelected(it) }, // pull-to-refresh forces a refresh on the same page it's already showing
                 onUseCurrentLocation = { weatherViewModel.useCurrentLocation() },
                 onSearchQueryChange = { weatherViewModel.search(it) },
-                onSelectSearchResult = { weatherViewModel.selectLocation(it) },
+                onAddLocation = { weatherViewModel.addLocationFromSearch(it) },
+                onRemoveLocation = { weatherViewModel.removeLocation(it) },
+                onReorderLocations = { weatherViewModel.reorderLocations(it) },
+                onSelectLocation = { weatherViewModel.selectLocation(it) },
+                onDismissLocationLimitMessage = { weatherViewModel.dismissLocationLimitMessage() },
                 onSettingsClick = { navController.navigate("settings") },
             )
         }

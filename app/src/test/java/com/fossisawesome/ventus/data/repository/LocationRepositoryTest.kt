@@ -13,7 +13,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-private class FakeDataStore : DataStore<Preferences> {
+private class LocationFakeDataStore : DataStore<Preferences> {
     private val flow = MutableStateFlow<Preferences>(emptyPreferences())
     override val data = flow
     override suspend fun updateData(transform: suspend (Preferences) -> Preferences): Preferences {
@@ -27,7 +27,7 @@ class LocationRepositoryTest {
 
     @Test
     fun `migrateIfNeeded is a no-op with an empty list when there is nothing to migrate`() = runBlocking {
-        val prefs = AppPreferences(FakeDataStore())
+        val prefs = AppPreferences(LocationFakeDataStore())
         val repo = LocationRepository(prefs)
 
         assertNull(repo.migrateIfNeeded())
@@ -36,7 +36,7 @@ class LocationRepositoryTest {
 
     @Test
     fun `migrateIfNeeded converts the old scalar location keys into a single-entry list`() = runBlocking {
-        val prefs = AppPreferences(FakeDataStore())
+        val prefs = AppPreferences(LocationFakeDataStore())
         prefs.setLocation(48.8566, 2.3522, "Paris, France")
 
         val repo = LocationRepository(prefs)
@@ -51,7 +51,7 @@ class LocationRepositoryTest {
 
     @Test
     fun `migrateIfNeeded marks the migrated entry as current-location when the name matches`() = runBlocking {
-        val prefs = AppPreferences(FakeDataStore())
+        val prefs = AppPreferences(LocationFakeDataStore())
         prefs.setLocation(1.0, 1.0, "Current location")
 
         val migrated = LocationRepository(prefs).migrateIfNeeded()
@@ -62,7 +62,7 @@ class LocationRepositoryTest {
 
     @Test
     fun `migrateIfNeeded is idempotent — does nothing on a second call`() = runBlocking {
-        val prefs = AppPreferences(FakeDataStore())
+        val prefs = AppPreferences(LocationFakeDataStore())
         prefs.setLocation(48.8566, 2.3522, "Paris, France")
         val repo = LocationRepository(prefs)
         repo.migrateIfNeeded()
@@ -73,7 +73,7 @@ class LocationRepositoryTest {
 
     @Test
     fun `addLocation appends and sets it active`() = runBlocking {
-        val prefs = AppPreferences(FakeDataStore())
+        val prefs = AppPreferences(LocationFakeDataStore())
         val repo = LocationRepository(prefs)
         val loc = Location("geo:1", 1.0, 1.0, "A", null)
 
@@ -86,7 +86,7 @@ class LocationRepositoryTest {
 
     @Test
     fun `addLocation reports AlreadyExists and just re-activates instead of duplicating`() = runBlocking {
-        val prefs = AppPreferences(FakeDataStore())
+        val prefs = AppPreferences(LocationFakeDataStore())
         val repo = LocationRepository(prefs)
         val loc = Location("geo:1", 1.0, 1.0, "A", null)
         repo.addLocation(loc)
@@ -101,7 +101,7 @@ class LocationRepositoryTest {
 
     @Test
     fun `addLocation reports CapReached at MAX_SAVED_LOCATIONS`() = runBlocking {
-        val prefs = AppPreferences(FakeDataStore())
+        val prefs = AppPreferences(LocationFakeDataStore())
         val repo = LocationRepository(prefs)
         repeat(AppPreferences.MAX_SAVED_LOCATIONS) { i -> repo.addLocation(Location("geo:$i", i.toDouble(), i.toDouble(), "City $i", null)) }
 
@@ -113,7 +113,7 @@ class LocationRepositoryTest {
 
     @Test
     fun `removeLocation drops the entry and re-activates a fallback when the active one is removed`() = runBlocking {
-        val prefs = AppPreferences(FakeDataStore())
+        val prefs = AppPreferences(LocationFakeDataStore())
         val repo = LocationRepository(prefs)
         repo.addLocation(Location("geo:1", 1.0, 1.0, "A", null))
         repo.addLocation(Location("geo:2", 2.0, 2.0, "B", null))
@@ -127,7 +127,7 @@ class LocationRepositoryTest {
 
     @Test
     fun `reorder applies the given id order`() = runBlocking {
-        val prefs = AppPreferences(FakeDataStore())
+        val prefs = AppPreferences(LocationFakeDataStore())
         val repo = LocationRepository(prefs)
         repo.addLocation(Location("geo:1", 1.0, 1.0, "A", null))
         repo.addLocation(Location("geo:2", 2.0, 2.0, "B", null))
@@ -139,7 +139,7 @@ class LocationRepositoryTest {
 
     @Test
     fun `upsertCurrentLocationCoords updates only the current-location entry`() = runBlocking {
-        val prefs = AppPreferences(FakeDataStore())
+        val prefs = AppPreferences(LocationFakeDataStore())
         val repo = LocationRepository(prefs)
         repo.addLocation(Location(AppPreferences.CURRENT_LOCATION_ID, 1.0, 1.0, "Current location", null, isCurrentLocation = true))
         repo.addLocation(Location("geo:1", 5.0, 5.0, "A", null))
