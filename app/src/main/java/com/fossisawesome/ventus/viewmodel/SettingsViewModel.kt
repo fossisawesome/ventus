@@ -3,6 +3,7 @@ package com.fossisawesome.ventus.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.fossisawesome.ventus.data.isUsLocation
+import com.fossisawesome.ventus.data.repository.LocationRepository
 import com.fossisawesome.ventus.data.storage.AppPreferences
 import com.fossisawesome.ventus.ui.theme.AppTheme
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -18,6 +19,7 @@ import kotlinx.coroutines.launch
 // framework-agnostic makes it fully unit-testable. MainActivity converts to/from Uri at the edge.
 class SettingsViewModel(
     private val prefs: AppPreferences,
+    private val locationRepository: LocationRepository,
     private val loadThemes: () -> List<AppTheme>,
     private val importTheme: (String) -> Result<Unit>,
     private val deleteTheme: (String) -> Unit,
@@ -29,9 +31,14 @@ class SettingsViewModel(
     val weatherProvider: StateFlow<String> = prefs.weatherProvider.stateIn(viewModelScope, SharingStarted.Eagerly, "open-meteo")
 
     // Drives whether the NWS option is selectable in Settings — NWS has no coverage outside the
-    // US, gated on the currently saved location's coordinates (see isUsLocation()).
-    val isNwsAvailable: StateFlow<Boolean> = combine(prefs.locationLat, prefs.locationLon) { lat, lon ->
-        lat != null && lon != null && isUsLocation(lat, lon)
+    // US, gated on the CURRENTLY ACTIVE saved location's coordinates (see isUsLocation()); this
+    // deliberately does not consider any of the user's OTHER saved locations.
+    val isNwsAvailable: StateFlow<Boolean> = combine(
+        locationRepository.locationsFlow,
+        locationRepository.activeLocationIdFlow,
+    ) { locations, activeId ->
+        val active = locations.find { it.id == activeId }
+        active != null && isUsLocation(active.lat, active.lon)
     }.stateIn(viewModelScope, SharingStarted.Eagerly, false)
 
     private val _availableThemes = MutableStateFlow(loadThemes())

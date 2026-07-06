@@ -3,6 +3,8 @@ package com.fossisawesome.ventus.viewmodel
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.emptyPreferences
+import com.fossisawesome.ventus.data.model.Location
+import com.fossisawesome.ventus.data.repository.LocationRepository
 import com.fossisawesome.ventus.data.storage.AppPreferences
 import com.fossisawesome.ventus.ui.theme.ALL_THEMES
 import kotlinx.coroutines.Dispatchers
@@ -40,10 +42,13 @@ class SettingsViewModelTest {
     @After
     fun tearDown() { Dispatchers.resetMain() }
 
+    private fun buildVm(prefs: AppPreferences): SettingsViewModel =
+        SettingsViewModel(prefs, LocationRepository(prefs), loadThemes = { ALL_THEMES }, importTheme = { Result.success(Unit) }, deleteTheme = {})
+
     @Test
     fun `selectTheme persists the new theme id`() = runTest {
         val prefs = AppPreferences(SettingsFakeDataStore())
-        val vm = SettingsViewModel(prefs, loadThemes = { ALL_THEMES }, importTheme = { Result.success(Unit) }, deleteTheme = {})
+        val vm = buildVm(prefs)
 
         vm.selectTheme("dracula")
         testDispatcher.scheduler.advanceUntilIdle()
@@ -54,7 +59,7 @@ class SettingsViewModelTest {
     @Test
     fun `selectFont persists the new font name`() = runTest {
         val prefs = AppPreferences(SettingsFakeDataStore())
-        val vm = SettingsViewModel(prefs, loadThemes = { ALL_THEMES }, importTheme = { Result.success(Unit) }, deleteTheme = {})
+        val vm = buildVm(prefs)
 
         vm.selectFont("Hack")
         testDispatcher.scheduler.advanceUntilIdle()
@@ -65,7 +70,7 @@ class SettingsViewModelTest {
     @Test
     fun `selectUnitsMode persists the new mode`() = runTest {
         val prefs = AppPreferences(SettingsFakeDataStore())
-        val vm = SettingsViewModel(prefs, loadThemes = { ALL_THEMES }, importTheme = { Result.success(Unit) }, deleteTheme = {})
+        val vm = buildVm(prefs)
 
         vm.selectUnitsMode("imperial")
         testDispatcher.scheduler.advanceUntilIdle()
@@ -76,7 +81,7 @@ class SettingsViewModelTest {
     @Test
     fun `weatherProvider defaults to open-meteo`() = runTest {
         val prefs = AppPreferences(SettingsFakeDataStore())
-        val vm = SettingsViewModel(prefs, loadThemes = { ALL_THEMES }, importTheme = { Result.success(Unit) }, deleteTheme = {})
+        val vm = buildVm(prefs)
 
         assertEquals("open-meteo", vm.weatherProvider.value)
     }
@@ -84,7 +89,7 @@ class SettingsViewModelTest {
     @Test
     fun `selectWeatherProvider persists the choice`() = runTest {
         val prefs = AppPreferences(SettingsFakeDataStore())
-        val vm = SettingsViewModel(prefs, loadThemes = { ALL_THEMES }, importTheme = { Result.success(Unit) }, deleteTheme = {})
+        val vm = buildVm(prefs)
 
         vm.selectWeatherProvider("nws")
         testDispatcher.scheduler.advanceUntilIdle()
@@ -93,28 +98,40 @@ class SettingsViewModelTest {
     }
 
     @Test
-    fun `isNwsAvailable is false when no location is saved`() = runTest {
+    fun `isNwsAvailable is false when there is no active location`() = runTest {
         val prefs = AppPreferences(SettingsFakeDataStore())
-        val vm = SettingsViewModel(prefs, loadThemes = { ALL_THEMES }, importTheme = { Result.success(Unit) }, deleteTheme = {})
+        val vm = buildVm(prefs)
 
         assertEquals(false, vm.isNwsAvailable.value)
     }
 
     @Test
-    fun `isNwsAvailable is true for a US location`() = runTest {
+    fun `isNwsAvailable is true when the active saved location is in the US`() = runTest {
         val prefs = AppPreferences(SettingsFakeDataStore())
-        prefs.setLocation(40.7128, -74.0060, "New York")
-        val vm = SettingsViewModel(prefs, loadThemes = { ALL_THEMES }, importTheme = { Result.success(Unit) }, deleteTheme = {})
+        val locationRepo = LocationRepository(prefs)
+        locationRepo.addLocation(Location("geo:1", 40.7128, -74.0060, "New York", null))
+        val vm = SettingsViewModel(prefs, locationRepo, loadThemes = { ALL_THEMES }, importTheme = { Result.success(Unit) }, deleteTheme = {})
         testDispatcher.scheduler.advanceUntilIdle()
 
         assertEquals(true, vm.isNwsAvailable.value)
     }
 
     @Test
+    fun `isNwsAvailable is false when the active saved location is outside the US`() = runTest {
+        val prefs = AppPreferences(SettingsFakeDataStore())
+        val locationRepo = LocationRepository(prefs)
+        locationRepo.addLocation(Location("geo:1", 51.5072, -0.1276, "London", "UK"))
+        val vm = SettingsViewModel(prefs, locationRepo, loadThemes = { ALL_THEMES }, importTheme = { Result.success(Unit) }, deleteTheme = {})
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(false, vm.isNwsAvailable.value)
+    }
+
+    @Test
     fun `availableThemes reflects loadThemes at construction time`() = runTest {
         val prefs = AppPreferences(SettingsFakeDataStore())
         val custom = ALL_THEMES.first().copy(id = "custom", name = "Custom", isImported = true, sourceFile = "custom.toml")
-        val vm = SettingsViewModel(prefs, loadThemes = { ALL_THEMES + custom }, importTheme = { Result.success(Unit) }, deleteTheme = {})
+        val vm = SettingsViewModel(prefs, LocationRepository(prefs), loadThemes = { ALL_THEMES + custom }, importTheme = { Result.success(Unit) }, deleteTheme = {})
 
         assertTrue(vm.availableThemes.value.any { it.id == "custom" })
     }
@@ -125,6 +142,7 @@ class SettingsViewModelTest {
         var themesAfterImport = ALL_THEMES
         val vm = SettingsViewModel(
             prefs,
+            LocationRepository(prefs),
             loadThemes = { themesAfterImport },
             importTheme = { _ ->
                 themesAfterImport = ALL_THEMES + ALL_THEMES.first().copy(id = "imported", name = "Imported", isImported = true, sourceFile = "imported.toml")
@@ -147,6 +165,7 @@ class SettingsViewModelTest {
         var deletedFile: String? = null
         val vm = SettingsViewModel(
             prefs,
+            LocationRepository(prefs),
             loadThemes = { themes },
             importTheme = { Result.success(Unit) },
             deleteTheme = { file -> deletedFile = file; themes = ALL_THEMES },
