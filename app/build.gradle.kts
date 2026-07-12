@@ -78,7 +78,7 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0")
     implementation("androidx.work:work-runtime:2.11.2")
     implementation("androidx.glance:glance-appwidget:1.1.1")
-    implementation("org.maplibre.gl:android-sdk:11.8.0")
+    implementation("org.maplibre.gl:android-sdk:13.3.1")
 
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.11.0")
